@@ -199,51 +199,110 @@ function updatePatientFromForm() {
   const shouldGenerateAgeExt = generateAgeExt ? generateAgeExt.checked : true;
 
   if (alwaysGenerateAgeExt) {
-    // If the "Always generate on Birth Date change" checkbox is checked,
-    // always generate the age extension from the current birthDate,
-    // regardless of manual age fields or the "Generate Age extension" checkbox.
-    if (birthDate && birthDate.trim() !== "") {
-      // Calculate age from birthDate to today
-      const today = new Date();
-      const birth = new Date(birthDate);
-      let years = today.getFullYear() - birth.getFullYear();
-      let months = today.getMonth() - birth.getMonth();
-      let days = today.getDate() - birth.getDate();
-
-      if (days < 0) {
-        months -= 1;
-        // Get days in previous month
-        const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-        days += prevMonth.getDate();
+      // Always generate the extension reactively from either manual fields (priority) or main birthDate.
+      const manualAgeFieldsFilled =
+        (ageYear !== null && ageYear !== "" && !isNaN(ageYear) && ageYear > 0) ||
+        (ageMonth !== null && ageMonth !== "" && !isNaN(ageMonth) && ageMonth > 0) ||
+        (ageDay !== null && ageDay !== "" && !isNaN(ageDay) && ageDay > 0);
+  
+      if (manualAgeFieldsFilled) {
+        // Generate from manual fields (priority)
+        const birthDateObj = calculateBirthDateFromAge(
+          ageYear || 0,
+          ageMonth || 0,
+          ageDay || 0
+        );
+        // Determine precision
+        const precision = determinePrecision(ageYear, ageMonth, ageDay);
+        // Format birthDate string accordingly and force override in patient JSON
+        if (precision === "yearOnly") {
+          birthDate = formatBirthDate(birthDateObj, true, false);
+        } else if (precision === "yearMonthOnly") {
+          const year = birthDateObj.getFullYear();
+          const month = birthDateObj.getMonth() + 1;
+          birthDate = `${year.toString().padStart(4, "0")}-${month
+            .toString()
+            .padStart(2, "0")}`;
+        } else if (precision === "monthDayOnly") {
+          const year = birthDateObj.getFullYear();
+          const month = birthDateObj.getMonth() + 1;
+          birthDate = `${year.toString().padStart(4, "0")}-${month
+            .toString()
+            .padStart(2, "0")}`;
+        } else if (precision === "monthOnly") {
+          const year = birthDateObj.getFullYear();
+          const month = birthDateObj.getMonth() + 1;
+          birthDate = `${year.toString().padStart(4, "0")}-${month
+            .toString()
+            .padStart(2, "0")}`;
+        } else {
+          birthDate = formatBirthDate(birthDateObj, false, false);
+        }
+        // Explicitly update the birthDate field in the form to keep UI and JSON in sync
+        if (form.elements["birthDate"]) {
+          form.elements["birthDate"].value = birthDate;
+        }
+        // Build ageAtEncounter extension
+        ageExtension = {
+          url: "http://example.com/fhir/StructureDefinition/ageAtEncounter",
+          extension: [],
+        };
+        ageExtension.extension.push({
+          url: "AgeYear",
+          valueQuantity: { value: ageYear || 0, unit: "years" },
+        });
+        ageExtension.extension.push({
+          url: "AgeMonth",
+          valueQuantity: { value: ageMonth || 0, unit: "months" },
+        });
+        ageExtension.extension.push({
+          url: "AgeDay",
+          valueQuantity: { value: ageDay || 0, unit: "days" },
+        });
+        ageExtension.extension.push({
+          url: "recordedDate",
+          valueDateTime: new Date().toISOString().split("T")[0],
+        });
+      } else if (birthDate && birthDate.trim() !== "") {
+        // Generate from main birthDate if manual fields are empty
+        const today = new Date();
+        const birth = new Date(birthDate);
+        let years = today.getFullYear() - birth.getFullYear();
+        let months = today.getMonth() - birth.getMonth();
+        let days = today.getDate() - birth.getDate();
+  
+        if (days < 0) {
+          months -= 1;
+          const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+          days += prevMonth.getDate();
+        }
+        if (months < 0) {
+          years -= 1;
+          months += 12;
+        }
+  
+        ageExtension = {
+          url: "http://example.com/fhir/StructureDefinition/ageAtEncounter",
+          extension: [],
+        };
+        ageExtension.extension.push({
+          url: "AgeYear",
+          valueQuantity: { value: years, unit: "years" },
+        });
+        ageExtension.extension.push({
+          url: "AgeMonth",
+          valueQuantity: { value: months, unit: "months" },
+        });
+        ageExtension.extension.push({
+          url: "AgeDay",
+          valueQuantity: { value: days, unit: "days" },
+        });
+        ageExtension.extension.push({
+          url: "recordedDate",
+          valueDateTime: today.toISOString().split("T")[0],
+        });
       }
-      if (months < 0) {
-        years -= 1;
-        months += 12;
-      }
-
-      ageExtension = {
-        url: "http://example.com/fhir/StructureDefinition/ageAtEncounter",
-        extension: [],
-      };
-      // Always include all components, even if zero
-      ageExtension.extension.push({
-        url: "AgeYear",
-        valueQuantity: { value: years, unit: "years" },
-      });
-      ageExtension.extension.push({
-        url: "AgeMonth",
-        valueQuantity: { value: months, unit: "months" },
-      });
-      ageExtension.extension.push({
-        url: "AgeDay",
-        valueQuantity: { value: days, unit: "days" },
-      });
-      ageExtension.extension.push({
-        url: "recordedDate",
-        valueDateTime: today.toISOString().split("T")[0],
-      });
-    }
-  } else {
+    } else {
     // Modified logic: if "Generate Age Extension as well" is enabled, always recalculate birthDate and extension from manual age fields
     const manualAgeFieldsFilled =
       (ageYear !== null && ageYear >= 0) ||

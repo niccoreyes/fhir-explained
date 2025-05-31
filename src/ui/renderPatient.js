@@ -95,7 +95,7 @@
             </label>
             <label style="display: flex; align-items: center; gap: 8px;">
               <input type="checkbox" id="alwaysGenerateAgeExt" name="alwaysGenerateAgeExt" />
-              <span>Always generate Extension for Main Birth Date (ignore manual fields)</span>
+              <span>Always generate Extension for Main Birth Date or manual fields</span>
             </label>
           </fieldset>
         </div>
@@ -297,6 +297,11 @@
       const alwaysGenerateAgeExtCheckbox = form.elements["alwaysGenerateAgeExt"];
       const generateChecked = generateAgeExtCheckbox && generateAgeExtCheckbox.checked;
       const alwaysChecked = alwaysGenerateAgeExtCheckbox && alwaysGenerateAgeExtCheckbox.checked;
+      // If "Always generate Extension for Main Birth Date or manual fields" is checked, always update
+      if (alwaysChecked) {
+        window.PatientData.updatePatientFromForm();
+        return;
+      }
       // If "Generate Age extension" is checked, or BOTH checkboxes are unchecked, updatePatientFromForm
       if (
         generateChecked ||
@@ -360,22 +365,35 @@
       const ageDay = ageDayInput ? parseInt(ageDayInput.value) || 0 : 0;
 
       // If "Always generate on Birth Date change" is checked, always show and auto-populate age fields
-      if (alwaysGenerate && dateStr) {
-        const { years, months, days, valid, precision } = calculateAgeFromBirthDate(dateStr);
-        // Do NOT modify manual age fields in this mode; only update the preview.
-        let ageText = "Rendered Age: ";
-        if (precision === "year") {
-          ageText += `~${years} years`;
-        } else if (precision === "month") {
-          ageText += `${years} years, ${months} months`;
-        } else if (precision === "day") {
-          ageText += `${years} years, ${months} months, ${days} days`;
-        } else {
-          ageText += "";
+      if (alwaysGenerate) {
+          // If any manual field is filled, show rendered age from manual fields
+          if (ageYear > 0 || ageMonth > 0 || ageDay > 0) {
+            let ageText = "Rendered Age: ";
+            if (ageYear > 0) ageText += `${ageYear} years`;
+            if (ageMonth > 0) ageText += `${ageYear > 0 ? ", " : ""}${ageMonth} months`;
+            if (ageDay > 0) ageText += `${(ageYear > 0 || ageMonth > 0) ? ", " : ""}${ageDay} days`;
+            renderedAgeDiv.textContent = ageText;
+            return;
+          }
+          // Otherwise, show rendered age from birthDate
+          if (dateStr) {
+            const { years, months, days, valid, precision } = calculateAgeFromBirthDate(dateStr);
+            let ageText = "Rendered Age: ";
+            if (precision === "year") {
+              ageText += `~${years} years`;
+            } else if (precision === "month") {
+              ageText += `${years} years, ${months} months`;
+            } else if (precision === "day") {
+              ageText += `${years} years, ${months} months, ${days} days`;
+            } else {
+              ageText += "";
+            }
+            renderedAgeDiv.textContent = ageText;
+            return;
+          }
+          renderedAgeDiv.textContent = "Rendered Age: ";
+          return;
         }
-        renderedAgeDiv.textContent = ageText;
-        return;
-      }
 
       // If manual age fields are filled (and not in always-generate mode), use those
       if ((ageYear > 0 || ageMonth > 0 || ageDay > 0) && !alwaysGenerate) {
