@@ -303,24 +303,24 @@ function updatePatientFromForm() {
     tempCountry = form.elements["tempCountry"].value.trim();
   }
 
-  // Helper to build PHCore address extension (flat, correct FHIR path)
-  function buildAddressExt(region, province, city, barangay) {
+  // Helper to build PHCore address extension (flat, correct FHIR path) with display included
+  function buildAddressExt(region, regionDisplay, province, provinceDisplay, city, cityDisplay, barangay, barangayDisplay) {
     const ext = [];
     if (region) ext.push({
       url: "urn://example.com/ph-core/fhir/StructureDefinition/region",
-      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: region }
+      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: region, display: regionDisplay }
     });
     if (province) ext.push({
       url: "urn://example.com/ph-core/fhir/StructureDefinition/province",
-      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: province }
+      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: province, display: provinceDisplay }
     });
     if (city) ext.push({
       url: "urn://example.com/ph-core/fhir/StructureDefinition/city-municipality",
-      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: city }
+      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: city, display: cityDisplay }
     });
     if (barangay) ext.push({
       url: "urn://example.com/ph-core/fhir/StructureDefinition/barangay",
-      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: barangay }
+      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: barangay, display: barangayDisplay }
     });
     return ext;
   }
@@ -350,7 +350,16 @@ function updatePatientFromForm() {
         use: "home",
         line: permLine ? permLine.split(",").map(s => s.trim()) : [],
         country: permCountry,
-        extension: buildAddressExt(permRegion, permProvince, permCity, permBarangay)
+        extension: buildAddressExt(
+          permRegion,
+          form.elements["permRegion"].selectedOptions[0]?.text || "",
+          permProvince,
+          form.elements["permProvince"].selectedOptions[0]?.text || "",
+          permCity,
+          form.elements["permCity"].selectedOptions[0]?.text || "",
+          permBarangay,
+          form.elements["permBarangay"].selectedOptions[0]?.text || ""
+        )
       }
     ]
   };
@@ -366,7 +375,16 @@ function updatePatientFromForm() {
       use: "temp",
       line: tempLine ? tempLine.split(",").map(s => s.trim()) : [],
       country: tempCountry,
-      extension: buildAddressExt(tempRegion, tempProvince, tempCity, tempBarangay)
+      extension: buildAddressExt(
+        tempRegion,
+        form.elements["tempRegion"].selectedOptions[0]?.text || "",
+        tempProvince,
+        form.elements["tempProvince"].selectedOptions[0]?.text || "",
+        tempCity,
+        form.elements["tempCity"].selectedOptions[0]?.text || "",
+        tempBarangay,
+        form.elements["tempBarangay"].selectedOptions[0]?.text || ""
+      )
     });
   }
 
