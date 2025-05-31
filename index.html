@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FHIR R4 Patient Viewer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <section class="left-panel">
+      <h1>FHIR R4 Patient Viewer</h1>
+      <div id="patient-view" class="patient-view">
+        <!-- Rendered patient info will appear here -->
+      </div>
+    </section>
+    <section class="right-panel">
+      <h2>Patient JSON Editor</h2>
+      <textarea id="json-editor" aria-label="FHIR Patient JSON Editor"></textarea>
+      <div id="error-message" class="error-message" role="alert" aria-live="assertive"></div>
+    </section>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
