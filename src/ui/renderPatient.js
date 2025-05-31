@@ -193,7 +193,12 @@
 
     // Add event listeners for form inputs
     const form = document.getElementById("patient-form");
-    form.addEventListener("input", onFormInput);
+    if (
+      window.FormEvents &&
+      typeof window.FormEvents.onFormInput === "function"
+    ) {
+      form.addEventListener("input", window.FormEvents.onFormInput);
+    }
 
     // Add event listener for Generate Age extension checkbox
     const generateAgeExtCheckbox = form.elements["generateAgeExt"];

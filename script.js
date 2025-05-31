@@ -2,6 +2,9 @@ const jsonEditor = document.getElementById("json-editor");
 const patientView = document.getElementById("patient-view");
 const errorMessage = document.getElementById("error-message");
 
+window.jsonEditor = jsonEditor;
+window.errorMessage = errorMessage;
+
 // Helper to create input elements
 
 // Render patient form for editing
@@ -34,6 +37,23 @@ async function populateSelect(
     option.textContent = v.display;
     selectElement.appendChild(option);
   });
+
+  // Remove previous updatePatientFromForm listener if any
+  if (selectElement._updatePatientListener) {
+    selectElement.removeEventListener("change", selectElement._updatePatientListener);
+  }
+  // Attach updatePatientFromForm as change listener
+  selectElement._updatePatientListener = function () {
+    if (window.PatientData && typeof window.PatientData.updatePatientFromForm === "function") {
+      window.PatientData.updatePatientFromForm();
+    }
+  };
+  selectElement.addEventListener("change", selectElement._updatePatientListener);
+
+  // Immediately update patient after population
+  if (window.PatientData && typeof window.PatientData.updatePatientFromForm === "function") {
+    window.PatientData.updatePatientFromForm();
+  }
 }
 
 // Recursive $lookup for child locations
@@ -93,13 +113,15 @@ async function initTerminologySelects(patient) {
       if (!code) {
         childSelect.innerHTML = "";
         if (nextChildSelect) nextChildSelect.innerHTML = "";
-        window.PatientData.updatePatientFromForm();
+        if (window.PatientData && typeof window.PatientData.updatePatientFromForm === "function") {
+          window.PatientData.updatePatientFromForm();
+        }
         return;
       }
       const children = await fetchChildren(code);
       await populateSelect(childSelect, children, "Select...");
       if (nextChildSelect) nextChildSelect.innerHTML = "";
-      window.PatientData.updatePatientFromForm();
+      // updatePatientFromForm is now called inside populateSelect
     });
   }
 
@@ -152,33 +174,26 @@ async function initTerminologySelects(patient) {
   handleCascading(tempCitySelect, tempBarangaySelect, null);
 
   // Update patient on barangay change
-  permBarangaySelect.addEventListener("change", window.PatientData.updatePatientFromForm);
-  tempBarangaySelect.addEventListener("change", window.PatientData.updatePatientFromForm);
+  // Listeners are now attached in populateSelect, so these are redundant and can be removed
 }
 
 // Handle form input changes
-function onFormInput() {
-  window.PatientData.updatePatientFromForm();
-}
 
 // Handle JSON input changes
-function onJsonInput() {
-  const jsonText = jsonEditor.value;
-  try {
-    const parsed = JSON.parse(jsonText);
-    errorMessage.textContent = "";
-    window.PatientData.currentPatient = parsed;
-    window.RenderPatient.renderPatient(parsed);
-  } catch (e) {
-    errorMessage.textContent = "Invalid JSON: " + e.message;
-  }
-}
 
 // Initialize editor with sample JSON
-function init() {
+function init(retryCount = 0) {
   jsonEditor.value = JSON.stringify(window.PatientData.samplePatient, null, 2);
   window.RenderPatient.renderPatient(window.PatientData.samplePatient);
-  jsonEditor.addEventListener("input", onJsonInput);
+  // Check for JsonEvents and onJsonInput before adding the event listener
+  if (window.JsonEvents && typeof window.JsonEvents.onJsonInput === "function") {
+    jsonEditor.addEventListener("input", window.JsonEvents.onJsonInput);
+  } else if (retryCount < 20) {
+    // Retry after a short delay, up to 20 times (~1s total)
+    setTimeout(() => init(retryCount + 1), 50);
+  } else {
+    console.error("JsonEvents.onJsonInput is not available after multiple attempts.");
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
