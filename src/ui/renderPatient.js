@@ -87,10 +87,17 @@
           </label>
         </div>
         <div style="margin-top: 8px;">
-          <label style="display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" id="generateAgeExt" name="generateAgeExt" checked />
-            <span>Generate Age extension</span>
-          </label>
+          <fieldset style="border: none; padding: 0; margin: 0; display: flex; gap: 24px; align-items: center;">
+            <legend style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(1px, 1px, 1px, 1px);">Age Extension Options</legend>
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="generateAgeExt" name="generateAgeExt" checked />
+              <span>Generate Age extension</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="alwaysGenerateAgeExt" name="alwaysGenerateAgeExt" />
+              <span>Always generate on Birth Date change</span>
+            </label>
+          </fieldset>
         </div>
         <div id="rendered-age" style="margin: 12px 0; padding: 18px 32px; border-radius: 18px; font-weight: 600; color: #222; background: #1111;">Rendered Age: </div>
       </fieldset>
@@ -237,6 +244,35 @@
       generateAgeExtCheckbox.addEventListener("change", window.PatientData.updatePatientFromForm);
     }
 
+    // Add event listener for Always Generate Age Extension checkbox
+    const alwaysGenerateAgeExtCheckbox = form.elements["alwaysGenerateAgeExt"];
+    if (alwaysGenerateAgeExtCheckbox) {
+      alwaysGenerateAgeExtCheckbox.addEventListener("change", window.PatientData.updatePatientFromForm);
+    }
+
+    // Mutually exclusive logic for Generate Age extension and Always generate on Birth Date change
+    if (generateAgeExtCheckbox && alwaysGenerateAgeExtCheckbox) {
+      generateAgeExtCheckbox.addEventListener("click", () => {
+        if (generateAgeExtCheckbox.checked) {
+          alwaysGenerateAgeExtCheckbox.checked = false;
+        }
+        window.PatientData.updatePatientFromForm();
+      });
+      alwaysGenerateAgeExtCheckbox.addEventListener("click", () => {
+        if (alwaysGenerateAgeExtCheckbox.checked) {
+          generateAgeExtCheckbox.checked = false;
+        }
+        window.PatientData.updatePatientFromForm();
+      });
+      // Set initial state: only one can be checked at a time
+      if (generateAgeExtCheckbox.checked) {
+        alwaysGenerateAgeExtCheckbox.checked = false;
+      }
+      if (alwaysGenerateAgeExtCheckbox.checked) {
+        generateAgeExtCheckbox.checked = false;
+      }
+    }
+
     // Add logic to disable birthDate input if any age field is filled
     const birthDateInput = form.elements["birthDate"];
     const ageYearInput = form.elements["ageYear"];
@@ -254,22 +290,79 @@
     });
     updateBirthDateDisabled();
 
-    // Rendered Age section update
+    // Helper: Calculate age (years, months, days) from birthDate string
+    function calculateAgeFromBirthDate(dateStr) {
+      if (!dateStr) return { years: 0, months: 0, days: 0, valid: false, precision: "" };
+      const now = new Date();
+      let birth, precision;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        birth = new Date(dateStr);
+        precision = "day";
+      } else if (/^\d{4}-\d{2}$/.test(dateStr)) {
+        birth = new Date(dateStr + "-01");
+        precision = "month";
+      } else if (/^\d{4}$/.test(dateStr)) {
+        birth = new Date(dateStr + "-01-01");
+        precision = "year";
+      } else {
+        return { years: 0, months: 0, days: 0, valid: false, precision: "" };
+      }
+      let years = now.getFullYear() - birth.getFullYear();
+      let months = now.getMonth() - birth.getMonth();
+      let days = now.getDate() - birth.getDate();
+      if (days < 0) {
+        months--;
+        const lastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        days += lastMonth.getDate();
+      }
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+      return { years, months, days, valid: true, precision };
+    }
+
+    // Rendered Age section update and Age field auto-population
     function updateRenderedAge() {
       const renderedAgeDiv = document.getElementById("rendered-age");
       let dateStr = birthDateInput ? birthDateInput.value : "";
-      // If birthDate is empty, try to get from JSON (for partial dates)
       if (!dateStr && window.PatientData.currentPatient && window.PatientData.currentPatient.birthDate) {
         dateStr = window.PatientData.currentPatient.birthDate;
       }
 
-      // Check if we have manual age inputs
+      // Checkbox states
+      const alwaysGenerate = alwaysGenerateAgeExtCheckbox && alwaysGenerateAgeExtCheckbox.checked;
+      const generateAgeExt = generateAgeExtCheckbox && generateAgeExtCheckbox.checked;
+
+      // Manual age input values
       const ageYear = ageYearInput ? parseInt(ageYearInput.value) || 0 : 0;
       const ageMonth = ageMonthInput ? parseInt(ageMonthInput.value) || 0 : 0;
       const ageDay = ageDayInput ? parseInt(ageDayInput.value) || 0 : 0;
 
-      // If we have manual age inputs, use those instead of calculating from birthDate
-      if (ageYear > 0 || ageMonth > 0 || ageDay > 0) {
+      // If "Always generate on Birth Date change" is checked, always show and auto-populate age fields
+      if (alwaysGenerate && dateStr) {
+        const { years, months, days, valid, precision } = calculateAgeFromBirthDate(dateStr);
+        // Only update if fields are not already set to these values (avoid cursor jump)
+        if (ageYearInput && (ageYearInput.value !== String(years))) ageYearInput.value = years;
+        if (ageMonthInput && (ageMonthInput.value !== String(months))) ageMonthInput.value = months;
+        if (ageDayInput && (ageDayInput.value !== String(days))) ageDayInput.value = days;
+        // Rendered Age text
+        let ageText = "Rendered Age: ";
+        if (precision === "year") {
+          ageText += `~${years} years`;
+        } else if (precision === "month") {
+          ageText += `${years} years, ${months} months`;
+        } else if (precision === "day") {
+          ageText += `${years} years, ${months} months, ${days} days`;
+        } else {
+          ageText += "";
+        }
+        renderedAgeDiv.textContent = ageText;
+        return;
+      }
+
+      // If manual age fields are filled (and not in always-generate mode), use those
+      if ((ageYear > 0 || ageMonth > 0 || ageDay > 0) && !alwaysGenerate) {
         let ageText = "Rendered Age: ";
         if (ageYear > 0) ageText += `${ageYear} years`;
         if (ageMonth > 0) ageText += `${ageYear > 0 ? ", " : ""}${ageMonth} months`;
@@ -284,56 +377,18 @@
         return;
       }
 
-      // Parse dateStr (YYYY, YYYY-MM, YYYY-MM-DD)
-      const now = new Date();
-      let birth;
-      
-      // Handle different date formats
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        // Full date (YYYY-MM-DD)
-        birth = new Date(dateStr);
-      } else if (/^\d{4}-\d{2}$/.test(dateStr)) {
-        // Year and month (YYYY-MM)
-        birth = new Date(dateStr + "-01");
-      } else if (/^\d{4}$/.test(dateStr)) {
-        // Year only (YYYY)
-        birth = new Date(dateStr + "-01-01");
-      } else {
-        renderedAgeDiv.textContent = "Rendered Age: ";
-        return;
-      }
-
-      // Calculate age
-      let years = now.getFullYear() - birth.getFullYear();
-      let months = now.getMonth() - birth.getMonth();
-      let days = now.getDate() - birth.getDate();
-
-      // Adjust for negative days
-      if (days < 0) {
-        months--;
-        const lastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-        days += lastMonth.getDate();
-      }
-
-      // Adjust for negative months
-      if (months < 0) {
-        years--;
-        months += 12;
-      }
-
-      // Format the age display based on the date precision
+      // Otherwise, calculate from birthDate for display only
+      const { years, months, days, valid, precision } = calculateAgeFromBirthDate(dateStr);
       let ageText = "Rendered Age: ";
-      if (/^\d{4}$/.test(dateStr)) {
-        // Year only
+      if (precision === "year") {
         ageText += `~${years} years`;
-      } else if (/^\d{4}-\d{2}$/.test(dateStr)) {
-        // Year and month
+      } else if (precision === "month") {
         ageText += `${years} years, ${months} months`;
-      } else {
-        // Full date
+      } else if (precision === "day") {
         ageText += `${years} years, ${months} months, ${days} days`;
+      } else {
+        ageText += "";
       }
-
       renderedAgeDiv.textContent = ageText;
     }
 
@@ -342,10 +397,14 @@
     [ageYearInput, ageMonthInput, ageDayInput].forEach((input) => {
       if (input) input.addEventListener("input", updateRenderedAge);
     });
+    if (generateAgeExtCheckbox) generateAgeExtCheckbox.addEventListener("change", updateRenderedAge);
+    if (alwaysGenerateAgeExtCheckbox) alwaysGenerateAgeExtCheckbox.addEventListener("change", updateRenderedAge);
 
     // Initial calculation
     updateRenderedAge();
 
+    // UI logic: When "Always generate on Birth Date change" is checked, do NOT modify manual age fields.
+    // The preview is handled in updateRenderedAge; manual fields remain editable and untouched.
     // Mutually exclusive checkboxes logic for tempSameAsPerm and tempClonePerm
     const tempSameCheckbox = form.elements["tempSameAsPerm"];
     const tempCloneCheckbox = form.elements["tempClonePerm"];

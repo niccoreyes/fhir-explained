@@ -46,6 +46,9 @@ function updatePatientFromForm() {
   const ageMonth = ageMonthRaw !== "" ? parseInt(ageMonthRaw, 10) : null;
   const ageDay = ageDayRaw !== "" ? parseInt(ageDayRaw, 10) : null;
 
+  // Always generate on Birth Date change checkbox
+  const alwaysGenerateAgeExt = form.elements["alwaysGenerateAgeExt"] ? form.elements["alwaysGenerateAgeExt"].checked : false;
+
   // Permanent address
   const permLine = form.elements["permLine"].value.trim();
   const permRegion = form.elements["permRegion"].value;
@@ -189,89 +192,138 @@ function updatePatientFromForm() {
 
   // Main logic for birthDate and ageAtEncounter extension
   let useAge = false;
-  if (
-    (ageYear !== null && ageYear >= 0) ||
-    (ageMonth !== null && ageMonth >= 0) ||
-    (ageDay !== null && ageDay >= 0)
-  ) {
-    useAge = true;
-  }
-  if (!birthDate || birthDate.trim() === "") {
-    useAge = true;
-  }
+  let ageExtension = null;
 
   // Check if Generate Age extension is checked
   const generateAgeExt = form.elements["generateAgeExt"];
   const shouldGenerateAgeExt = generateAgeExt ? generateAgeExt.checked : true;
 
-  let ageExtension = null;
-  if (useAge) {
-    // Calculate birthDate from age inputs
-    const birthDateObj = calculateBirthDateFromAge(
-      ageYear || 0,
-      ageMonth || 0,
-      ageDay || 0
-    );
+  if (alwaysGenerateAgeExt) {
+    // If the "Always generate on Birth Date change" checkbox is checked,
+    // always generate the age extension from the current birthDate,
+    // regardless of manual age fields or the "Generate Age extension" checkbox.
+    if (birthDate && birthDate.trim() !== "") {
+      // Calculate age from birthDate to today
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let years = today.getFullYear() - birth.getFullYear();
+      let months = today.getMonth() - birth.getMonth();
+      let days = today.getDate() - birth.getDate();
 
-    // Determine precision
-    const precision = determinePrecision(ageYear, ageMonth, ageDay);
+      if (days < 0) {
+        months -= 1;
+        // Get days in previous month
+        const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+        days += prevMonth.getDate();
+      }
+      if (months < 0) {
+        years -= 1;
+        months += 12;
+      }
 
-    // Format birthDate string accordingly
-    if (precision === "yearOnly") {
-      birthDate = formatBirthDate(birthDateObj, true, false);
-    } else if (precision === "yearMonthOnly") {
-      // Format as YYYY-MM only, no day
-      const year = birthDateObj.getFullYear();
-      const month = birthDateObj.getMonth() + 1;
-      birthDate = `${year.toString().padStart(4, "0")}-${month
-        .toString()
-        .padStart(2, "0")}`;
-    } else if (precision === "monthDayOnly") {
-      // Encode as YYYY-MM only (no day) when only months and days are provided
-      const year = birthDateObj.getFullYear();
-      const month = birthDateObj.getMonth() + 1;
-      birthDate = `${year.toString().padStart(4, "0")}-${month
-        .toString()
-        .padStart(2, "0")}`;
-    } else if (precision === "monthOnly") {
-      // Encode as YYYY-MM only when only months are provided (no day)
-      const year = birthDateObj.getFullYear();
-      const month = birthDateObj.getMonth() + 1;
-      birthDate = `${year.toString().padStart(4, "0")}-${month
-        .toString()
-        .padStart(2, "0")}`;
-    } else {
-      birthDate = formatBirthDate(birthDateObj, false, false);
-    }
-
-    // Build ageAtEncounter extension only if checkbox is checked
-    if (shouldGenerateAgeExt) {
       ageExtension = {
         url: "http://example.com/fhir/StructureDefinition/ageAtEncounter",
         extension: [],
       };
-      if (ageYear !== null && ageYear >= 0) {
-        ageExtension.extension.push({
-          url: "AgeYear",
-          valueQuantity: { value: ageYear, unit: "years" },
-        });
-      }
-      if (ageMonth !== null && ageMonth >= 0) {
-        ageExtension.extension.push({
-          url: "AgeMonth",
-          valueQuantity: { value: ageMonth, unit: "months" },
-        });
-      }
-      if (ageDay !== null && ageDay >= 0) {
-        ageExtension.extension.push({
-          url: "AgeDay",
-          valueQuantity: { value: ageDay, unit: "days" },
-        });
-      }
+      // Always include all components, even if zero
+      ageExtension.extension.push({
+        url: "AgeYear",
+        valueQuantity: { value: years, unit: "years" },
+      });
+      ageExtension.extension.push({
+        url: "AgeMonth",
+        valueQuantity: { value: months, unit: "months" },
+      });
+      ageExtension.extension.push({
+        url: "AgeDay",
+        valueQuantity: { value: days, unit: "days" },
+      });
       ageExtension.extension.push({
         url: "recordedDate",
-        valueDateTime: new Date().toISOString().split("T")[0],
+        valueDateTime: today.toISOString().split("T")[0],
       });
+    }
+  } else {
+    // Default logic: generate age extension if any age field is filled or birthDate is empty
+    if (
+      (ageYear !== null && ageYear >= 0) ||
+      (ageMonth !== null && ageMonth >= 0) ||
+      (ageDay !== null && ageDay >= 0)
+    ) {
+      useAge = true;
+    }
+    if (!birthDate || birthDate.trim() === "") {
+      useAge = true;
+    }
+
+    if (useAge) {
+      // Calculate birthDate from age inputs
+      const birthDateObj = calculateBirthDateFromAge(
+        ageYear || 0,
+        ageMonth || 0,
+        ageDay || 0
+      );
+
+      // Determine precision
+      const precision = determinePrecision(ageYear, ageMonth, ageDay);
+
+      // Format birthDate string accordingly
+      if (precision === "yearOnly") {
+        birthDate = formatBirthDate(birthDateObj, true, false);
+      } else if (precision === "yearMonthOnly") {
+        // Format as YYYY-MM only, no day
+        const year = birthDateObj.getFullYear();
+        const month = birthDateObj.getMonth() + 1;
+        birthDate = `${year.toString().padStart(4, "0")}-${month
+          .toString()
+          .padStart(2, "0")}`;
+      } else if (precision === "monthDayOnly") {
+        // Encode as YYYY-MM only (no day) when only months and days are provided
+        const year = birthDateObj.getFullYear();
+        const month = birthDateObj.getMonth() + 1;
+        birthDate = `${year.toString().padStart(4, "0")}-${month
+          .toString()
+          .padStart(2, "0")}`;
+      } else if (precision === "monthOnly") {
+        // Encode as YYYY-MM only when only months are provided (no day)
+        const year = birthDateObj.getFullYear();
+        const month = birthDateObj.getMonth() + 1;
+        birthDate = `${year.toString().padStart(4, "0")}-${month
+          .toString()
+          .padStart(2, "0")}`;
+      } else {
+        birthDate = formatBirthDate(birthDateObj, false, false);
+      }
+
+      // Build ageAtEncounter extension only if checkbox is checked
+      if (shouldGenerateAgeExt) {
+        ageExtension = {
+          url: "http://example.com/fhir/StructureDefinition/ageAtEncounter",
+          extension: [],
+        };
+        if (ageYear !== null && ageYear >= 0) {
+          ageExtension.extension.push({
+            url: "AgeYear",
+            valueQuantity: { value: ageYear, unit: "years" },
+          });
+        }
+        if (ageMonth !== null && ageMonth >= 0) {
+          ageExtension.extension.push({
+            url: "AgeMonth",
+            valueQuantity: { value: ageMonth, unit: "months" },
+          });
+        }
+        if (ageDay !== null && ageDay >= 0) {
+          ageExtension.extension.push({
+            url: "AgeDay",
+            valueQuantity: { value: ageDay, unit: "days" },
+          });
+        }
+        ageExtension.extension.push({
+          url: "recordedDate",
+          valueDateTime: new Date().toISOString().split("T")[0],
+        });
+      }
     }
   }
 
