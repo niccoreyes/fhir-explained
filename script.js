@@ -150,8 +150,13 @@ function renderPatient(patient) {
             <input type="number" min="0" max="31" name="ageDay" value="" style="width: 100%;" />
           </label>
         </div>
-        // add a section here called "Rendered Age: " calculated from the birthDate JSON
-      </fieldset>
+        <div style="margin-top: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="generateAgeExt" name="generateAgeExt" checked />
+            <span>Generate Age extension</span>
+          </label>
+        </div>
+        <div id="rendered-age" style="margin: 12px 0; padding: 18px 32px; border-radius: 18px; font-weight: 600; color: #222; background: #1111;">Rendered Age: </div>      </fieldset>
 
       <fieldset>
         <legend><strong>Permanent Address</strong></legend>
@@ -216,6 +221,80 @@ function renderPatient(patient) {
   // Add event listeners for form inputs
   const form = document.getElementById("patient-form");
   form.addEventListener("input", onFormInput);
+
+  // Add event listener for Generate Age extension checkbox
+  const generateAgeExtCheckbox = form.elements["generateAgeExt"];
+  if (generateAgeExtCheckbox) {
+    generateAgeExtCheckbox.addEventListener("change", updatePatientFromForm);
+  }
+
+  // Add logic to disable birthDate input if any age field is filled
+  const birthDateInput = form.elements["birthDate"];
+  const ageYearInput = form.elements["ageYear"];
+  const ageMonthInput = form.elements["ageMonth"];
+  const ageDayInput = form.elements["ageDay"];
+  function updateBirthDateDisabled() {
+    const anyAgeFilled =
+      (ageYearInput && ageYearInput.value !== "") ||
+      (ageMonthInput && ageMonthInput.value !== "") ||
+      (ageDayInput && ageDayInput.value !== "");
+    if (birthDateInput) birthDateInput.disabled = anyAgeFilled;
+  }
+  [ageYearInput, ageMonthInput, ageDayInput].forEach((input) => {
+    if (input) input.addEventListener("input", updateBirthDateDisabled);
+  });
+  updateBirthDateDisabled();
+
+  // Rendered Age section update
+  function updateRenderedAge() {
+    const renderedAgeDiv = document.getElementById("rendered-age");
+    let dateStr = birthDateInput ? birthDateInput.value : "";
+    // If birthDate is empty, try to get from JSON (for partial dates)
+    if (!dateStr && currentPatient && currentPatient.birthDate) {
+      dateStr = currentPatient.birthDate;
+    }
+    if (!dateStr) {
+      renderedAgeDiv.textContent = "Rendered Age: ";
+      return;
+    }
+    // Parse dateStr (YYYY, YYYY-MM, YYYY-MM-DD)
+    const now = new Date();
+    let birth;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      birth = new Date(dateStr);
+    } else if (/^\d{4}-\d{2}$/.test(dateStr)) {
+      birth = new Date(dateStr + "-01");
+    } else if (/^\d{4}$/.test(dateStr)) {
+      birth = new Date(dateStr + "-01-01");
+    } else {
+      renderedAgeDiv.textContent = "Rendered Age: ";
+      return;
+    }
+    let years = now.getFullYear() - birth.getFullYear();
+    let months = now.getMonth() - birth.getMonth();
+    let days = now.getDate() - birth.getDate();
+    if (days < 0) {
+      months--;
+      days += new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+    // Adjust for partial dates
+    if (/^\d{4}$/.test(dateStr)) {
+      renderedAgeDiv.textContent = `Rendered Age: ~${years} years`;
+    } else if (/^\d{4}-\d{2}$/.test(dateStr)) {
+      renderedAgeDiv.textContent = `Rendered Age: ~${years} years, ${months} months`;
+    } else {
+      renderedAgeDiv.textContent = `Rendered Age: ${years} years, ${months} months, ${days} days`;
+    }
+  }
+  birthDateInput && birthDateInput.addEventListener("input", updateRenderedAge);
+  [ageYearInput, ageMonthInput, ageDayInput].forEach((input) => {
+    if (input) input.addEventListener("input", updateRenderedAge);
+  });
+  updateRenderedAge();
 
   // Mutually exclusive checkboxes logic for tempSameAsPerm and tempClonePerm
   const tempSameCheckbox = form.elements["tempSameAsPerm"];
@@ -502,6 +581,10 @@ function updatePatientFromForm() {
     useAge = true;
   }
 
+  // Check if Generate Age extension is checked
+  const generateAgeExt = form.elements["generateAgeExt"];
+  const shouldGenerateAgeExt = generateAgeExt ? generateAgeExt.checked : true;
+
   let ageExtension = null;
   if (useAge) {
     // Calculate birthDate from age inputs
@@ -542,33 +625,35 @@ function updatePatientFromForm() {
       birthDate = formatBirthDate(birthDateObj, false, false);
     }
 
-    // Build ageAtEncounter extension
-    ageExtension = {
-      url: "http://example.com/fhir/StructureDefinition/ageAtEncounter",
-      extension: [],
-    };
-    if (ageYear !== null && ageYear >= 0) {
+    // Build ageAtEncounter extension only if checkbox is checked
+    if (shouldGenerateAgeExt) {
+      ageExtension = {
+        url: "http://example.com/fhir/StructureDefinition/ageAtEncounter",
+        extension: [],
+      };
+      if (ageYear !== null && ageYear >= 0) {
+        ageExtension.extension.push({
+          url: "AgeYear",
+          valueQuantity: { value: ageYear, unit: "years" },
+        });
+      }
+      if (ageMonth !== null && ageMonth >= 0) {
+        ageExtension.extension.push({
+          url: "AgeMonth",
+          valueQuantity: { value: ageMonth, unit: "months" },
+        });
+      }
+      if (ageDay !== null && ageDay >= 0) {
+        ageExtension.extension.push({
+          url: "AgeDay",
+          valueQuantity: { value: ageDay, unit: "days" },
+        });
+      }
       ageExtension.extension.push({
-        url: "AgeYear",
-        valueQuantity: { value: ageYear, unit: "years" },
+        url: "recordedDate",
+        valueDateTime: new Date().toISOString().split("T")[0],
       });
     }
-    if (ageMonth !== null && ageMonth >= 0) {
-      ageExtension.extension.push({
-        url: "AgeMonth",
-        valueQuantity: { value: ageMonth, unit: "months" },
-      });
-    }
-    if (ageDay !== null && ageDay >= 0) {
-      ageExtension.extension.push({
-        url: "AgeDay",
-        valueQuantity: { value: ageDay, unit: "days" },
-      });
-    }
-    ageExtension.extension.push({
-      url: "recordedDate",
-      valueDateTime: new Date().toISOString().split("T")[0],
-    });
   }
 
   // Compose extensions array for patient
