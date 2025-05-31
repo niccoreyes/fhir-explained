@@ -253,47 +253,88 @@ function renderPatient(patient) {
     if (!dateStr && currentPatient && currentPatient.birthDate) {
       dateStr = currentPatient.birthDate;
     }
+
+    // Check if we have manual age inputs
+    const ageYear = ageYearInput ? parseInt(ageYearInput.value) || 0 : 0;
+    const ageMonth = ageMonthInput ? parseInt(ageMonthInput.value) || 0 : 0;
+    const ageDay = ageDayInput ? parseInt(ageDayInput.value) || 0 : 0;
+
+    // If we have manual age inputs, use those instead of calculating from birthDate
+    if (ageYear > 0 || ageMonth > 0 || ageDay > 0) {
+      let ageText = "Rendered Age: ";
+      if (ageYear > 0) ageText += `${ageYear} years`;
+      if (ageMonth > 0) ageText += `${ageYear > 0 ? ", " : ""}${ageMonth} months`;
+      if (ageDay > 0) ageText += `${(ageYear > 0 || ageMonth > 0) ? ", " : ""}${ageDay} days`;
+      renderedAgeDiv.textContent = ageText;
+      return;
+    }
+
+    // If no date string, clear the display
     if (!dateStr) {
       renderedAgeDiv.textContent = "Rendered Age: ";
       return;
     }
+
     // Parse dateStr (YYYY, YYYY-MM, YYYY-MM-DD)
     const now = new Date();
     let birth;
+    
+    // Handle different date formats
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      // Full date (YYYY-MM-DD)
       birth = new Date(dateStr);
     } else if (/^\d{4}-\d{2}$/.test(dateStr)) {
+      // Year and month (YYYY-MM)
       birth = new Date(dateStr + "-01");
     } else if (/^\d{4}$/.test(dateStr)) {
+      // Year only (YYYY)
       birth = new Date(dateStr + "-01-01");
     } else {
       renderedAgeDiv.textContent = "Rendered Age: ";
       return;
     }
+
+    // Calculate age
     let years = now.getFullYear() - birth.getFullYear();
     let months = now.getMonth() - birth.getMonth();
     let days = now.getDate() - birth.getDate();
+
+    // Adjust for negative days
     if (days < 0) {
       months--;
-      days += new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+      const lastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      days += lastMonth.getDate();
     }
+
+    // Adjust for negative months
     if (months < 0) {
       years--;
       months += 12;
     }
-    // Adjust for partial dates
+
+    // Format the age display based on the date precision
+    let ageText = "Rendered Age: ";
     if (/^\d{4}$/.test(dateStr)) {
-      renderedAgeDiv.textContent = `Rendered Age: ~${years} years`;
+      // Year only
+      ageText += `~${years} years`;
     } else if (/^\d{4}-\d{2}$/.test(dateStr)) {
-      renderedAgeDiv.textContent = `Rendered Age: ~${years} years, ${months} months`;
+      // Year and month
+      ageText += `${years} years, ${months} months`;
     } else {
-      renderedAgeDiv.textContent = `Rendered Age: ${years} years, ${months} months, ${days} days`;
+      // Full date
+      ageText += `${years} years, ${months} months, ${days} days`;
     }
+
+    renderedAgeDiv.textContent = ageText;
   }
+
+  // Add event listeners for all inputs that should trigger age recalculation
   birthDateInput && birthDateInput.addEventListener("input", updateRenderedAge);
   [ageYearInput, ageMonthInput, ageDayInput].forEach((input) => {
     if (input) input.addEventListener("input", updateRenderedAge);
   });
+
+  // Initial calculation
   updateRenderedAge();
 
   // Mutually exclusive checkboxes logic for tempSameAsPerm and tempClonePerm
