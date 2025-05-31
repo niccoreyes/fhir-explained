@@ -396,9 +396,20 @@
       window.PatientData.updatePatientFromForm();
     });
 
-    // Initialize terminology server selects
-    initTerminologySelects(patient);
-
+        // Initialize terminology server selects with guard and retry
+        function tryInitTerminologySelects(patient, retries = 5, delay = 100) {
+          if (
+            window.TerminologyService &&
+            typeof window.TerminologyService.initTerminologySelects === "function"
+          ) {
+            window.TerminologyService.initTerminologySelects(patient);
+          } else if (retries > 0) {
+            setTimeout(() => tryInitTerminologySelects(patient, retries - 1, delay), delay);
+          }
+          // else: give up silently
+        }
+        tryInitTerminologySelects(patient);
+    
     // Copy permanent address to temporary if checkbox checked
     function copyPermanentToTemporary() {
       const permRegion = form.elements["permRegion"];
