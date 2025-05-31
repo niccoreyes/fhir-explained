@@ -95,7 +95,7 @@
             </label>
             <label style="display: flex; align-items: center; gap: 8px;">
               <input type="checkbox" id="alwaysGenerateAgeExt" name="alwaysGenerateAgeExt" />
-              <span>Always generate on Birth Date change</span>
+              <span>Always generate Extension for Main Birth Date (ignore manual fields)</span>
             </label>
           </fieldset>
         </div>
@@ -290,6 +290,19 @@
     });
     updateBirthDateDisabled();
 
+    // --- FULL REACTIVITY FOR MANUAL AGE FIELDS ---
+    // When "Generate Age Extension as well" is checked, recalculate on every input in age fields
+    function handleManualAgeInputReactive() {
+      const generateAgeExtCheckbox = form.elements["generateAgeExt"];
+      if (generateAgeExtCheckbox && generateAgeExtCheckbox.checked) {
+        window.PatientData.updatePatientFromForm();
+      }
+    }
+    [ageYearInput, ageMonthInput, ageDayInput].forEach((input) => {
+      if (input) input.addEventListener("input", handleManualAgeInputReactive);
+    });
+    // ------------------------------------------------
+
     // Helper: Calculate age (years, months, days) from birthDate string
     function calculateAgeFromBirthDate(dateStr) {
       if (!dateStr) return { years: 0, months: 0, days: 0, valid: false, precision: "" };
@@ -342,11 +355,7 @@
       // If "Always generate on Birth Date change" is checked, always show and auto-populate age fields
       if (alwaysGenerate && dateStr) {
         const { years, months, days, valid, precision } = calculateAgeFromBirthDate(dateStr);
-        // Only update if fields are not already set to these values (avoid cursor jump)
-        if (ageYearInput && (ageYearInput.value !== String(years))) ageYearInput.value = years;
-        if (ageMonthInput && (ageMonthInput.value !== String(months))) ageMonthInput.value = months;
-        if (ageDayInput && (ageDayInput.value !== String(days))) ageDayInput.value = days;
-        // Rendered Age text
+        // Do NOT modify manual age fields in this mode; only update the preview.
         let ageText = "Rendered Age: ";
         if (precision === "year") {
           ageText += `~${years} years`;
@@ -394,6 +403,14 @@
 
     // Add event listeners for all inputs that should trigger age recalculation
     birthDateInput && birthDateInput.addEventListener("input", updateRenderedAge);
+    // NEW: When "Always generate Extension for Main Birth Date" is checked, recalculate extension and all dependents on every birthDate input
+    if (birthDateInput && alwaysGenerateAgeExtCheckbox) {
+      birthDateInput.addEventListener("input", function () {
+        if (alwaysGenerateAgeExtCheckbox.checked) {
+          window.PatientData.updatePatientFromForm();
+        }
+      });
+    }
     [ageYearInput, ageMonthInput, ageDayInput].forEach((input) => {
       if (input) input.addEventListener("input", updateRenderedAge);
     });
