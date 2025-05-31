@@ -6,19 +6,19 @@ const samplePatient = {
     {
       use: "usual",
       system: "https://philhealth.gov.ph",
-      value: "PH1234567890"
-    }
+      value: "PH1234567890",
+    },
   ],
   name: [
     {
       use: "official",
       family: "Santos",
-      given: ["Juan", "Dela Cruz"]
-    }
+      given: ["Juan", "Dela Cruz"],
+    },
   ],
   gender: "male",
   birthDate: "1990-05-15",
-  address: []
+  address: [],
 };
 
 const jsonEditor = document.getElementById("json-editor");
@@ -28,19 +28,29 @@ const errorMessage = document.getElementById("error-message");
 let currentPatient = JSON.parse(JSON.stringify(samplePatient));
 
 // Helper to create input elements
-function createInput({type, id, value, name, options, checked}) {
+function createInput({ type, id, value, name, options, checked }) {
   if (type === "radio" && options) {
-    return options.map(opt => `
+    return options
+      .map(
+        (opt) => `
       <label class="radio-label">
-        <input type="radio" name="${name}" value="${opt.value}" ${opt.value === value ? "checked" : ""} />
+        <input type="radio" name="${name}" value="${opt.value}" ${
+          opt.value === value ? "checked" : ""
+        } />
         <span>${opt.label}</span>
       </label>
-    `).join(" ");
+    `
+      )
+      .join(" ");
   }
   if (type === "checkbox") {
-    return `<input type="checkbox" id="${id}" name="${name}" ${checked ? "checked" : ""} />`;
+    return `<input type="checkbox" id="${id}" name="${name}" ${
+      checked ? "checked" : ""
+    } />`;
   }
-  return `<input type="${type}" id="${id}" name="${name}" value="${value || ""}" />`;
+  return `<input type="${type}" id="${id}" name="${name}" value="${
+    value || ""
+  }" />`;
 }
 
 // Render patient form for editing
@@ -51,62 +61,81 @@ function renderPatient(patient) {
   }
 
   // Extract fields
-  const name = patient.name && patient.name[0] || {};
+  const name = (patient.name && patient.name[0]) || {};
   const family = name.family || "";
   const given = name.given || ["", ""];
   const gender = patient.gender || "";
   const birthDate = patient.birthDate || "";
-  const identifier = patient.identifier && patient.identifier[0] || {};
+  const identifier = (patient.identifier && patient.identifier[0]) || {};
   const philHealth = identifier.value || "";
 
   // Addresses (PHCore: use extensions)
-  const permanentAddress = patient.address ? patient.address.find(a => a.use === "home") || {} : {};
-  const tempAddress = patient.address ? patient.address.find(a => a.use === "temp") || {} : {};
+  const permanentAddress = patient.address
+    ? patient.address.find((a) => a.use === "home") || {}
+    : {};
+  const tempAddress = patient.address
+    ? patient.address.find((a) => a.use === "temp") || {}
+    : {};
 
   // Helper to get extension value by URL
   function getExt(address, url) {
     if (!address.extension) return "";
-    const ext = address.extension.find(e => e.url === url);
+    const ext = address.extension.find((e) => e.url === url);
     return ext && ext.valueCoding ? ext.valueCoding.code : "";
   }
   function getExtDisplay(address, url) {
     if (!address.extension) return "";
-    const ext = address.extension.find(e => e.url === url);
+    const ext = address.extension.find((e) => e.url === url);
     return ext && ext.valueCoding ? ext.valueCoding.display : "";
   }
 
   // Check if temp address same as permanent
-  const tempSameAsPermanent = JSON.stringify(tempAddress) === JSON.stringify(permanentAddress);
+  const tempSameAsPermanent =
+    JSON.stringify(tempAddress) === JSON.stringify(permanentAddress);
 
   // Sex options
   const sexOptions = [
-    {value: "female", label: "Female"},
-    {value: "male", label: "Male"}
+    { value: "female", label: "Female" },
+    { value: "male", label: "Male" },
   ];
 
   patientView.innerHTML = `
     <form id="patient-form" autocomplete="off" novalidate>
+     <fieldset>
+        <legend><strong>PhilHealth Number</strong></legend>
+        <input type="text" name="philHealth" value="${philHealth}" placeholder="PhilHealth Number" />
+      </fieldset>
       <fieldset>
         <legend><strong>Name of Patient</strong></legend>
         <label>Last Name:
           <input type="text" name="family" value="${family}" placeholder="Apelyido" />
         </label>
         <label>First Name:
-          <input type="text" name="given0" value="${given[0] || ""}" placeholder="Pangalan" />
+          <input type="text" name="given0" value="${
+            given[0] || ""
+          }" placeholder="Pangalan" />
         </label>
         <label>Middle Name:
-          <input type="text" name="given1" value="${given[1] || ""}" placeholder="Gitnang Pangalan" />
+          <input type="text" name="given1" value="${
+            given[1] || ""
+          }" placeholder="Gitnang Pangalan" />
         </label>
       </fieldset>
 
       <fieldset>
         <legend><strong>Sex</strong></legend>
-        ${createInput({type: "radio", name: "gender", value: gender, options: sexOptions})}
+        ${createInput({
+          type: "radio",
+          name: "gender",
+          value: gender,
+          options: sexOptions,
+        })}
       </fieldset>
 
       <fieldset>
         <legend><strong>Birth Date</strong></legend>
         <input type="date" name="birthDate" value="${birthDate}" id="birthDateInput" />
+        <legend><strong>If Birth Date is not known</strong></legend>
         <div style="margin-top: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: nowrap;">
           <label style="flex: 1; min-width: 100px; display: flex; flex-direction: column; align-items: flex-start;">
             <span>Age Years:</span>
@@ -121,17 +150,15 @@ function renderPatient(patient) {
             <input type="number" min="0" max="31" name="ageDay" value="" style="width: 100%;" />
           </label>
         </div>
-      </fieldset>
-
-      <fieldset>
-        <legend><strong>PhilHealth Number</strong></legend>
-        <input type="text" name="philHealth" value="${philHealth}" placeholder="PhilHealth Number" />
+        // add a section here called "Rendered Age: " calculated from the birthDate JSON
       </fieldset>
 
       <fieldset>
         <legend><strong>Permanent Address</strong></legend>
         <label>Street / Barangay:
-          <input type="text" name="permLine" value="${permanentAddress.line ? permanentAddress.line.join(", ") : ""}" placeholder="Kalye / Barangay" />
+          <input type="text" name="permLine" value="${
+            permanentAddress.line ? permanentAddress.line.join(", ") : ""
+          }" placeholder="Kalye / Barangay" />
         </label>
         <label>Region:
           <select name="permRegion" id="permRegion" class="styled-select"></select>
@@ -146,14 +173,18 @@ function renderPatient(patient) {
           <select name="permBarangay" id="permBarangay" class="styled-select"></select>
         </label>
         <label>Country:
-          <input type="text" name="permCountry" value="${permanentAddress.country || "Philippines"}" placeholder="Bansa" />
+          <input type="text" name="permCountry" value="${
+            permanentAddress.country || "Philippines"
+          }" placeholder="Bansa" />
         </label>
       </fieldset>
 
       <fieldset>
         <legend><strong>Temporary Address</strong></legend>
         <label>
-          <input type="checkbox" id="tempSameAsPerm" name="tempSameAsPerm" ${tempSameAsPermanent ? "checked" : ""} />
+          <input type="checkbox" id="tempSameAsPerm" name="tempSameAsPerm" ${
+            tempSameAsPermanent ? "checked" : ""
+          } />
           Same as Permanent (hide temp in JSON)
         </label>
         <label>
@@ -214,8 +245,15 @@ function renderPatient(patient) {
   // Checkbox special handling for disabling temp fields
   tempSameCheckbox.addEventListener("change", (e) => {
     const checked = e.target.checked;
-    const tempFields = ["tempLine", "tempRegion", "tempProvince", "tempCity", "tempBarangay", "tempCountry"];
-    tempFields.forEach(name => {
+    const tempFields = [
+      "tempLine",
+      "tempRegion",
+      "tempProvince",
+      "tempCity",
+      "tempBarangay",
+      "tempCountry",
+    ];
+    tempFields.forEach((name) => {
       const input = form.elements[name];
       if (input) {
         input.disabled = checked || tempCloneCheckbox.checked;
@@ -236,8 +274,15 @@ function renderPatient(patient) {
   });
   tempCloneCheckbox.addEventListener("change", (e) => {
     const checked = e.target.checked;
-    const tempFields = ["tempLine", "tempRegion", "tempProvince", "tempCity", "tempBarangay", "tempCountry"];
-    tempFields.forEach(name => {
+    const tempFields = [
+      "tempLine",
+      "tempRegion",
+      "tempProvince",
+      "tempCity",
+      "tempBarangay",
+      "tempCountry",
+    ];
+    tempFields.forEach((name) => {
       const input = form.elements[name];
       if (input) {
         input.disabled = checked || tempSameCheckbox.checked;
@@ -271,9 +316,11 @@ function renderPatient(patient) {
     const tempCountry = form.elements["tempCountry"];
 
     if (permRegion && tempRegion) tempRegion.innerHTML = permRegion.innerHTML;
-    if (permProvince && tempProvince) tempProvince.innerHTML = permProvince.innerHTML;
+    if (permProvince && tempProvince)
+      tempProvince.innerHTML = permProvince.innerHTML;
     if (permCity && tempCity) tempCity.innerHTML = permCity.innerHTML;
-    if (permBarangay && tempBarangay) tempBarangay.innerHTML = permBarangay.innerHTML;
+    if (permBarangay && tempBarangay)
+      tempBarangay.innerHTML = permBarangay.innerHTML;
     if (permCountry && tempCountry) tempCountry.value = permCountry.value;
   }
 }
@@ -328,31 +375,60 @@ function updatePatientFromForm() {
   }
 
   // Helper to build PHCore address extension (flat, correct FHIR path) with display included
-  function buildAddressExt(region, regionDisplay, province, provinceDisplay, city, cityDisplay, barangay, barangayDisplay) {
+  function buildAddressExt(
+    region,
+    regionDisplay,
+    province,
+    provinceDisplay,
+    city,
+    cityDisplay,
+    barangay,
+    barangayDisplay
+  ) {
     const ext = [];
-    if (region) ext.push({
-      url: "urn://example.com/ph-core/fhir/StructureDefinition/region",
-      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: region, display: regionDisplay }
-    });
-    if (province) ext.push({
-      url: "urn://example.com/ph-core/fhir/StructureDefinition/province",
-      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: province, display: provinceDisplay }
-    });
-    if (city) ext.push({
-      url: "urn://example.com/ph-core/fhir/StructureDefinition/city-municipality",
-      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: city, display: cityDisplay }
-    });
-    if (barangay) ext.push({
-      url: "urn://example.com/ph-core/fhir/StructureDefinition/barangay",
-      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: barangay, display: barangayDisplay }
-    });
+    if (region)
+      ext.push({
+        url: "urn://example.com/ph-core/fhir/StructureDefinition/region",
+        valueCoding: {
+          system: "https://ontoserver.upmsilab.org/psgc",
+          code: region,
+          display: regionDisplay,
+        },
+      });
+    if (province)
+      ext.push({
+        url: "urn://example.com/ph-core/fhir/StructureDefinition/province",
+        valueCoding: {
+          system: "https://ontoserver.upmsilab.org/psgc",
+          code: province,
+          display: provinceDisplay,
+        },
+      });
+    if (city)
+      ext.push({
+        url: "urn://example.com/ph-core/fhir/StructureDefinition/city-municipality",
+        valueCoding: {
+          system: "https://ontoserver.upmsilab.org/psgc",
+          code: city,
+          display: cityDisplay,
+        },
+      });
+    if (barangay)
+      ext.push({
+        url: "urn://example.com/ph-core/fhir/StructureDefinition/barangay",
+        valueCoding: {
+          system: "https://ontoserver.upmsilab.org/psgc",
+          code: barangay,
+          display: barangayDisplay,
+        },
+      });
     return ext;
   }
 
   // Helper to find extension by URL
   function findExtension(extensions, url) {
     if (!extensions) return null;
-    return extensions.find(ext => ext.url === url) || null;
+    return extensions.find((ext) => ext.url === url) || null;
   }
 
   // Helper to format birthDate string with precision
@@ -364,10 +440,14 @@ function updatePatientFromForm() {
     if (yearOnly) {
       return `${year}`;
     } else if (yearMonthOnly) {
-      return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}`;
+      return `${year.toString().padStart(4, "0")}-${month
+        .toString()
+        .padStart(2, "0")}`;
     } else {
       // Always return full date if day is present
-      return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+      return `${year.toString().padStart(4, "0")}-${month
+        .toString()
+        .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
     }
   }
 
@@ -411,7 +491,11 @@ function updatePatientFromForm() {
 
   // Main logic for birthDate and ageAtEncounter extension
   let useAge = false;
-  if ((ageYear !== null && ageYear >= 0) || (ageMonth !== null && ageMonth >= 0) || (ageDay !== null && ageDay >= 0)) {
+  if (
+    (ageYear !== null && ageYear >= 0) ||
+    (ageMonth !== null && ageMonth >= 0) ||
+    (ageDay !== null && ageDay >= 0)
+  ) {
     useAge = true;
   }
   if (!birthDate || birthDate.trim() === "") {
@@ -421,7 +505,11 @@ function updatePatientFromForm() {
   let ageExtension = null;
   if (useAge) {
     // Calculate birthDate from age inputs
-    const birthDateObj = calculateBirthDateFromAge(ageYear || 0, ageMonth || 0, ageDay || 0);
+    const birthDateObj = calculateBirthDateFromAge(
+      ageYear || 0,
+      ageMonth || 0,
+      ageDay || 0
+    );
 
     // Determine precision
     const precision = determinePrecision(ageYear, ageMonth, ageDay);
@@ -433,17 +521,23 @@ function updatePatientFromForm() {
       // Format as YYYY-MM only, no day
       const year = birthDateObj.getFullYear();
       const month = birthDateObj.getMonth() + 1;
-      birthDate = `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}`;
+      birthDate = `${year.toString().padStart(4, "0")}-${month
+        .toString()
+        .padStart(2, "0")}`;
     } else if (precision === "monthDayOnly") {
       // Encode as YYYY-MM only (no day) when only months and days are provided
       const year = birthDateObj.getFullYear();
       const month = birthDateObj.getMonth() + 1;
-      birthDate = `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}`;
+      birthDate = `${year.toString().padStart(4, "0")}-${month
+        .toString()
+        .padStart(2, "0")}`;
     } else if (precision === "monthOnly") {
       // Encode as YYYY-MM only when only months are provided (no day)
       const year = birthDateObj.getFullYear();
       const month = birthDateObj.getMonth() + 1;
-      birthDate = `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}`;
+      birthDate = `${year.toString().padStart(4, "0")}-${month
+        .toString()
+        .padStart(2, "0")}`;
     } else {
       birthDate = formatBirthDate(birthDateObj, false, false);
     }
@@ -451,37 +545,42 @@ function updatePatientFromForm() {
     // Build ageAtEncounter extension
     ageExtension = {
       url: "http://example.com/fhir/StructureDefinition/ageAtEncounter",
-      extension: []
+      extension: [],
     };
     if (ageYear !== null && ageYear >= 0) {
       ageExtension.extension.push({
         url: "AgeYear",
-        valueQuantity: { value: ageYear, unit: "years" }
+        valueQuantity: { value: ageYear, unit: "years" },
       });
     }
     if (ageMonth !== null && ageMonth >= 0) {
       ageExtension.extension.push({
         url: "AgeMonth",
-        valueQuantity: { value: ageMonth, unit: "months" }
+        valueQuantity: { value: ageMonth, unit: "months" },
       });
     }
     if (ageDay !== null && ageDay >= 0) {
       ageExtension.extension.push({
         url: "AgeDay",
-        valueQuantity: { value: ageDay, unit: "days" }
+        valueQuantity: { value: ageDay, unit: "days" },
       });
     }
     ageExtension.extension.push({
       url: "recordedDate",
-      valueDateTime: new Date().toISOString().split("T")[0]
+      valueDateTime: new Date().toISOString().split("T")[0],
     });
   }
 
   // Compose extensions array for patient
-  let extensions = currentPatient.extension ? [...currentPatient.extension] : [];
+  let extensions = currentPatient.extension
+    ? [...currentPatient.extension]
+    : [];
 
   // Remove existing ageAtEncounter extension if any
-  extensions = extensions.filter(ext => ext.url !== "http://example.com/fhir/StructureDefinition/ageAtEncounter");
+  extensions = extensions.filter(
+    (ext) =>
+      ext.url !== "http://example.com/fhir/StructureDefinition/ageAtEncounter"
+  );
 
   // Add ageAtEncounter extension if applicable
   if (ageExtension) {
@@ -496,22 +595,22 @@ function updatePatientFromForm() {
       {
         use: "usual",
         system: "https://philhealth.gov.ph",
-        value: philHealth
-      }
+        value: philHealth,
+      },
     ],
     name: [
       {
         use: "official",
         family: family,
-        given: [given0, given1].filter(Boolean)
-      }
+        given: [given0, given1].filter(Boolean),
+      },
     ],
     gender: gender,
     birthDate: birthDate,
     address: [
       {
         use: "home",
-        line: permLine ? permLine.split(",").map(s => s.trim()) : [],
+        line: permLine ? permLine.split(",").map((s) => s.trim()) : [],
         country: permCountry,
         extension: buildAddressExt(
           permRegion,
@@ -522,22 +621,22 @@ function updatePatientFromForm() {
           form.elements["permCity"].selectedOptions[0]?.text || "",
           permBarangay,
           form.elements["permBarangay"].selectedOptions[0]?.text || ""
-        )
-      }
+        ),
+      },
     ],
-    extension: extensions.length > 0 ? extensions : undefined
+    extension: extensions.length > 0 ? extensions : undefined,
   };
 
   // "Same as Permanent - Keep use:Temp" (clone home as temp)
   if (tempClonePerm) {
     patient.address.push({
       ...patient.address[0],
-      use: "temp"
+      use: "temp",
     });
   } else if (!tempSameAsPerm) {
     patient.address.push({
       use: "temp",
-      line: tempLine ? tempLine.split(",").map(s => s.trim()) : [],
+      line: tempLine ? tempLine.split(",").map((s) => s.trim()) : [],
       country: tempCountry,
       extension: buildAddressExt(
         tempRegion,
@@ -548,7 +647,7 @@ function updatePatientFromForm() {
         form.elements["tempCity"].selectedOptions[0]?.text || "",
         tempBarangay,
         form.elements["tempBarangay"].selectedOptions[0]?.text || ""
-      )
+      ),
     });
   }
 
@@ -560,12 +659,17 @@ function updatePatientFromForm() {
 // Helper for fetching ValueSet
 async function fetchValueSet(url) {
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
+  if (!response.ok)
+    throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
   return response.json();
 }
 
 // Helper for populating select
-async function populateSelect(selectElement, values, placeholder = "Select...") {
+async function populateSelect(
+  selectElement,
+  values,
+  placeholder = "Select..."
+) {
   selectElement.innerHTML = "";
   const placeholderOption = document.createElement("option");
   placeholderOption.value = "";
@@ -574,7 +678,7 @@ async function populateSelect(selectElement, values, placeholder = "Select...") 
   placeholderOption.selected = true;
   selectElement.appendChild(placeholderOption);
 
-  values.forEach(v => {
+  values.forEach((v) => {
     const option = document.createElement("option");
     option.value = v.code;
     option.textContent = v.display;
@@ -591,16 +695,22 @@ async function fetchChildren(code) {
   const children = [];
   for (const param of data.parameter) {
     if (param.name === "property" && Array.isArray(param.part)) {
-      const codePart = param.part.find(p => p.name === "code" && p.valueCode === "child");
-      const valuePart = param.part.find(p => p.name === "value");
+      const codePart = param.part.find(
+        (p) => p.name === "code" && p.valueCode === "child"
+      );
+      const valuePart = param.part.find((p) => p.name === "value");
       if (codePart && valuePart && valuePart.valueCode) {
         // Fetch display for each child
         const detailUrl = `https://tx.fhirlab.net/fhir/CodeSystem/$lookup?system=https%3A%2F%2Fontoserver.upmsilab.org%2Fpsgc&code=${valuePart.valueCode}&_format=json`;
         const detailResp = await fetch(detailUrl);
         if (detailResp.ok) {
           const detailData = await detailResp.json();
-          const displayParam = detailData.parameter.find(p => p.name === "display");
-          const display = displayParam ? displayParam.valueString : valuePart.valueCode;
+          const displayParam = detailData.parameter.find(
+            (p) => p.name === "display"
+          );
+          const display = displayParam
+            ? displayParam.valueString
+            : valuePart.valueCode;
           children.push({ code: valuePart.valueCode, display });
         }
       }
@@ -649,13 +759,18 @@ async function initTerminologySelects(patient) {
 
   async function loadRegions(selectElement, loadedFlagSetter) {
     if (loadedFlagSetter()) return;
-    const valueSetUrl = "https://tx.fhirlab.net/fhir/ValueSet/55372606-f7d2-4450-8b9d-c3f51f67a138/$expand";
+    const valueSetUrl =
+      "https://tx.fhirlab.net/fhir/ValueSet/55372606-f7d2-4450-8b9d-c3f51f67a138/$expand";
     try {
       const response = await fetch(valueSetUrl);
       if (!response.ok) throw new Error("Failed to fetch regions");
       const valueSet = await response.json();
-      if (!valueSet.expansion || !Array.isArray(valueSet.expansion.contains)) throw new Error("Malformed ValueSet response");
-      const regions = valueSet.expansion.contains.map(c => ({code: c.code, display: c.display}));
+      if (!valueSet.expansion || !Array.isArray(valueSet.expansion.contains))
+        throw new Error("Malformed ValueSet response");
+      const regions = valueSet.expansion.contains.map((c) => ({
+        code: c.code,
+        display: c.display,
+      }));
       await populateSelect(selectElement, regions, "Select Region");
       loadedFlagSetter(true);
     } catch (error) {
@@ -663,8 +778,18 @@ async function initTerminologySelects(patient) {
     }
   }
 
-  permRegionSelect.addEventListener("click", () => loadRegions(permRegionSelect, v => permRegionsLoaded = v ?? permRegionsLoaded));
-  tempRegionSelect.addEventListener("click", () => loadRegions(tempRegionSelect, v => tempRegionsLoaded = v ?? tempRegionsLoaded));
+  permRegionSelect.addEventListener("click", () =>
+    loadRegions(
+      permRegionSelect,
+      (v) => (permRegionsLoaded = v ?? permRegionsLoaded)
+    )
+  );
+  tempRegionSelect.addEventListener("click", () =>
+    loadRegions(
+      tempRegionSelect,
+      (v) => (tempRegionsLoaded = v ?? tempRegionsLoaded)
+    )
+  );
 
   // Cascading for permanent address
   handleCascading(permRegionSelect, permProvinceSelect, permCitySelect);
