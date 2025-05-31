@@ -106,7 +106,21 @@ function renderPatient(patient) {
 
       <fieldset>
         <legend><strong>Birth Date</strong></legend>
-        <input type="date" name="birthDate" value="${birthDate}" />
+        <input type="date" name="birthDate" value="${birthDate}" id="birthDateInput" />
+        <div style="margin-top: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: nowrap;">
+          <label style="flex: 1; min-width: 100px; display: flex; flex-direction: column; align-items: flex-start;">
+            <span>Age Years:</span>
+            <input type="number" min="0" max="150" name="ageYear" value="" style="width: 100%;" />
+          </label>
+          <label style="flex: 1; min-width: 100px; display: flex; flex-direction: column; align-items: flex-start;">
+            <span>Age Months:</span>
+            <input type="number" min="0" max="11" name="ageMonth" value="" style="width: 100%;" />
+          </label>
+          <label style="flex: 1; min-width: 100px; display: flex; flex-direction: column; align-items: flex-start;">
+            <span>Age Days:</span>
+            <input type="number" min="0" max="31" name="ageDay" value="" style="width: 100%;" />
+          </label>
+        </div>
       </fieldset>
 
       <fieldset>
@@ -274,8 +288,18 @@ function updatePatientFromForm() {
   const given0 = form.elements["given0"].value.trim();
   const given1 = form.elements["given1"].value.trim();
   const gender = form.elements["gender"].value;
-  const birthDate = form.elements["birthDate"].value;
+  let birthDate = form.elements["birthDate"].value;
   const philHealth = form.elements["philHealth"].value.trim();
+
+  // Age inputs
+  const ageYearRaw = form.elements["ageYear"].value;
+  const ageMonthRaw = form.elements["ageMonth"].value;
+  const ageDayRaw = form.elements["ageDay"].value;
+
+  // Parse age inputs as integers or null
+  const ageYear = ageYearRaw !== "" ? parseInt(ageYearRaw, 10) : null;
+  const ageMonth = ageMonthRaw !== "" ? parseInt(ageMonthRaw, 10) : null;
+  const ageDay = ageDayRaw !== "" ? parseInt(ageDayRaw, 10) : null;
 
   // Permanent address
   const permLine = form.elements["permLine"].value.trim();
@@ -325,6 +349,145 @@ function updatePatientFromForm() {
     return ext;
   }
 
+  // Helper to find extension by URL
+  function findExtension(extensions, url) {
+    if (!extensions) return null;
+    return extensions.find(ext => ext.url === url) || null;
+  }
+
+  // Helper to format birthDate string with precision
+  function formatBirthDate(dateObj, yearOnly, yearMonthOnly) {
+    const year = dateObj.getFullYear();
+    const month = dateObj.getMonth() + 1; // zero-based
+    const day = dateObj.getDate();
+
+    if (yearOnly) {
+      return `${year}`;
+    } else if (yearMonthOnly) {
+      return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}`;
+    } else {
+      // Always return full date if day is present
+      return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+    }
+  }
+
+  // Back-calculate birthDate from age inputs and current date
+  function calculateBirthDateFromAge(years, months, days) {
+    const now = new Date();
+    let birth;
+
+    if (years && !months && !days) {
+      // Only years: subtract years, keep month and day as Jan 1
+      birth = new Date(now.getFullYear() - years, 0, 1);
+    } else if (!years && months && !days) {
+      // Only months: subtract months, keep day as 1
+      birth = new Date(now.getFullYear(), now.getMonth() - months, 1);
+    } else {
+      // Otherwise subtract all from current date
+      birth = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (years) {
+        birth.setFullYear(birth.getFullYear() - years);
+      }
+      if (months) {
+        birth.setMonth(birth.getMonth() - months);
+      }
+      if (days) {
+        birth.setDate(birth.getDate() - days);
+      }
+    }
+    return birth;
+  }
+
+  // Determine precision for birthDate encoding
+  function determinePrecision(years, months, days) {
+    if (years && !months && !days) return "yearOnly";
+    if (years && months && !days) return "yearMonthOnly";
+    if (years && (months || days)) return "fullDate";
+    if (!years && months && !days) return "monthOnly";
+    if (!years && months && days) return "fullDate";
+    if (!years && !months && days) return "dayOnly";
+    return "fullDate"; // default fallback
+  }
+
+  // Main logic for birthDate and ageAtEncounter extension
+  let useAge = false;
+  if ((ageYear !== null && ageYear >= 0) || (ageMonth !== null && ageMonth >= 0) || (ageDay !== null && ageDay >= 0)) {
+    useAge = true;
+  }
+  if (!birthDate || birthDate.trim() === "") {
+    useAge = true;
+  }
+
+  let ageExtension = null;
+  if (useAge) {
+    // Calculate birthDate from age inputs
+    const birthDateObj = calculateBirthDateFromAge(ageYear || 0, ageMonth || 0, ageDay || 0);
+
+    // Determine precision
+    const precision = determinePrecision(ageYear, ageMonth, ageDay);
+
+    // Format birthDate string accordingly
+    if (precision === "yearOnly") {
+      birthDate = formatBirthDate(birthDateObj, true, false);
+    } else if (precision === "yearMonthOnly") {
+      // Format as YYYY-MM only, no day
+      const year = birthDateObj.getFullYear();
+      const month = birthDateObj.getMonth() + 1;
+      birthDate = `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}`;
+    } else if (precision === "monthDayOnly") {
+      // Encode as YYYY-MM only (no day) when only months and days are provided
+      const year = birthDateObj.getFullYear();
+      const month = birthDateObj.getMonth() + 1;
+      birthDate = `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}`;
+    } else if (precision === "monthOnly") {
+      // Encode as YYYY-MM only when only months are provided (no day)
+      const year = birthDateObj.getFullYear();
+      const month = birthDateObj.getMonth() + 1;
+      birthDate = `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}`;
+    } else {
+      birthDate = formatBirthDate(birthDateObj, false, false);
+    }
+
+    // Build ageAtEncounter extension
+    ageExtension = {
+      url: "http://example.com/fhir/StructureDefinition/ageAtEncounter",
+      extension: []
+    };
+    if (ageYear !== null && ageYear >= 0) {
+      ageExtension.extension.push({
+        url: "AgeYear",
+        valueQuantity: { value: ageYear, unit: "years" }
+      });
+    }
+    if (ageMonth !== null && ageMonth >= 0) {
+      ageExtension.extension.push({
+        url: "AgeMonth",
+        valueQuantity: { value: ageMonth, unit: "months" }
+      });
+    }
+    if (ageDay !== null && ageDay >= 0) {
+      ageExtension.extension.push({
+        url: "AgeDay",
+        valueQuantity: { value: ageDay, unit: "days" }
+      });
+    }
+    ageExtension.extension.push({
+      url: "recordedDate",
+      valueDateTime: new Date().toISOString().split("T")[0]
+    });
+  }
+
+  // Compose extensions array for patient
+  let extensions = currentPatient.extension ? [...currentPatient.extension] : [];
+
+  // Remove existing ageAtEncounter extension if any
+  extensions = extensions.filter(ext => ext.url !== "http://example.com/fhir/StructureDefinition/ageAtEncounter");
+
+  // Add ageAtEncounter extension if applicable
+  if (ageExtension) {
+    extensions.push(ageExtension);
+  }
+
   // Compose patient JSON
   const patient = {
     resourceType: "Patient",
@@ -361,7 +524,8 @@ function updatePatientFromForm() {
           form.elements["permBarangay"].selectedOptions[0]?.text || ""
         )
       }
-    ]
+    ],
+    extension: extensions.length > 0 ? extensions : undefined
   };
 
   // "Same as Permanent - Keep use:Temp" (clone home as temp)
