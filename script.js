@@ -18,36 +18,7 @@ const samplePatient = {
   ],
   gender: "male",
   birthDate: "1990-05-15",
-  address: [
-    {
-      use: "home",
-      line: ["123 Barangay Mabuhay"],
-      city: "Quezon City",
-      state: "Metro Manila",
-      postalCode: "1100",
-      country: "Philippines"
-    },
-    {
-      use: "temp",
-      line: ["456 Barangay Malinis"],
-      city: "Makati City",
-      state: "Metro Manila",
-      postalCode: "1200",
-      country: "Philippines"
-    }
-  ],
-  telecom: [
-    {
-      system: "phone",
-      value: "+63 912 345 6789",
-      use: "mobile"
-    },
-    {
-      system: "email",
-      value: "juan.santos@example.ph",
-      use: "home"
-    }
-  ]
+  address: []
 };
 
 const jsonEditor = document.getElementById("json-editor");
@@ -88,9 +59,21 @@ function renderPatient(patient) {
   const identifier = patient.identifier && patient.identifier[0] || {};
   const philHealth = identifier.value || "";
 
-  // Addresses
+  // Addresses (PHCore: use extensions)
   const permanentAddress = patient.address ? patient.address.find(a => a.use === "home") || {} : {};
   const tempAddress = patient.address ? patient.address.find(a => a.use === "temp") || {} : {};
+
+  // Helper to get extension value by URL
+  function getExt(address, url) {
+    if (!address.extension) return "";
+    const ext = address.extension.find(e => e.url === url);
+    return ext && ext.valueCoding ? ext.valueCoding.code : "";
+  }
+  function getExtDisplay(address, url) {
+    if (!address.extension) return "";
+    const ext = address.extension.find(e => e.url === url);
+    return ext && ext.valueCoding ? ext.valueCoding.display : "";
+  }
 
   // Check if temp address same as permanent
   const tempSameAsPermanent = JSON.stringify(tempAddress) === JSON.stringify(permanentAddress);
@@ -103,7 +86,6 @@ function renderPatient(patient) {
     {value: "BHS", label: "BHS"},
     {value: "RHU", label: "RHU"}
   ];
-  // For demo, no patient type in JSON, so no selection
 
   // Sex options
   const sexOptions = [
@@ -152,13 +134,16 @@ function renderPatient(patient) {
           <input type="text" name="permLine" value="${permanentAddress.line ? permanentAddress.line.join(", ") : ""}" placeholder="Kalye / Barangay" />
         </label>
         <label>Region:
-          <select name="permRegion" id="permRegion" aria-label="Permanent Region" class="styled-select"></select>
+          <select name="permRegion" id="permRegion" class="styled-select"></select>
         </label>
         <label>Province:
-          <select name="permProvince" id="permProvince" aria-label="Permanent Province" class="styled-select"></select>
+          <select name="permProvince" id="permProvince" class="styled-select"></select>
         </label>
         <label>City / Municipality:
-          <select name="permCity" id="permCity" aria-label="Permanent City or Municipality" class="styled-select"></select>
+          <select name="permCity" id="permCity" class="styled-select"></select>
+        </label>
+        <label>Barangay:
+          <select name="permBarangay" id="permBarangay" class="styled-select"></select>
         </label>
         <label>Country:
           <input type="text" name="permCountry" value="${permanentAddress.country || "Philippines"}" placeholder="Bansa" />
@@ -175,13 +160,16 @@ function renderPatient(patient) {
           <input type="text" name="tempLine" value="${tempSameAsPermanent ? "" : (tempAddress.line ? tempAddress.line.join(", ") : "")}" ${tempSameAsPermanent ? "disabled" : ""} placeholder="Kalye / Barangay" />
         </label>
         <label>Region:
-          <select name="tempRegion" id="tempRegion" aria-label="Temporary Region" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
+          <select name="tempRegion" id="tempRegion" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
         </label>
         <label>Province:
-          <select name="tempProvince" id="tempProvince" aria-label="Temporary Province" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
+          <select name="tempProvince" id="tempProvince" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
         </label>
         <label>City / Municipality:
-          <select name="tempCity" id="tempCity" aria-label="Temporary City or Municipality" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
+          <select name="tempCity" id="tempCity" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
+        </label>
+        <label>Barangay:
+          <select name="tempBarangay" id="tempBarangay" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
         </label>
         <label>Country:
           <input type="text" name="tempCountry" value="${tempSameAsPermanent ? "" : (tempAddress.country || "Philippines")}" ${tempSameAsPermanent ? "disabled" : ""} placeholder="Bansa" />
@@ -198,7 +186,7 @@ function renderPatient(patient) {
   const tempSameCheckbox = document.getElementById("tempSameAsPerm");
   tempSameCheckbox.addEventListener("change", (e) => {
     const checked = e.target.checked;
-    const tempFields = ["tempLine", "tempRegion", "tempProvince", "tempCity", "tempCountry"];
+    const tempFields = ["tempLine", "tempRegion", "tempProvince", "tempCity", "tempBarangay", "tempCountry"];
     tempFields.forEach(name => {
       const input = form.elements[name];
       if (input) {
@@ -227,21 +215,24 @@ function renderPatient(patient) {
     const permRegion = form.elements["permRegion"];
     const permProvince = form.elements["permProvince"];
     const permCity = form.elements["permCity"];
+    const permBarangay = form.elements["permBarangay"];
     const permCountry = form.elements["permCountry"];
 
     const tempRegion = form.elements["tempRegion"];
     const tempProvince = form.elements["tempProvince"];
     const tempCity = form.elements["tempCity"];
+    const tempBarangay = form.elements["tempBarangay"];
     const tempCountry = form.elements["tempCountry"];
 
     if (permRegion && tempRegion) tempRegion.innerHTML = permRegion.innerHTML;
     if (permProvince && tempProvince) tempProvince.innerHTML = permProvince.innerHTML;
     if (permCity && tempCity) tempCity.innerHTML = permCity.innerHTML;
+    if (permBarangay && tempBarangay) tempBarangay.innerHTML = permBarangay.innerHTML;
     if (permCountry && tempCountry) tempCountry.value = permCountry.value;
   }
 }
 
-// Update JSON editor from form inputs
+// Update JSON editor from form inputs (PHCore Address profile)
 function updatePatientFromForm() {
   const form = document.getElementById("patient-form");
   if (!form) return;
@@ -259,6 +250,7 @@ function updatePatientFromForm() {
   const permRegion = form.elements["permRegion"].value;
   const permProvince = form.elements["permProvince"].value;
   const permCity = form.elements["permCity"].value;
+  const permBarangay = form.elements["permBarangay"].value;
   const permCountry = form.elements["permCountry"].value.trim();
 
   // Temporary address
@@ -267,13 +259,37 @@ function updatePatientFromForm() {
   let tempRegion = "";
   let tempProvince = "";
   let tempCity = "";
+  let tempBarangay = "";
   let tempCountry = "";
   if (!tempSameAsPerm) {
     tempLine = form.elements["tempLine"].value.trim();
     tempRegion = form.elements["tempRegion"].value;
     tempProvince = form.elements["tempProvince"].value;
     tempCity = form.elements["tempCity"].value;
+    tempBarangay = form.elements["tempBarangay"].value;
     tempCountry = form.elements["tempCountry"].value.trim();
+  }
+
+  // Helper to build PHCore address extension (flat, correct FHIR path)
+  function buildAddressExt(region, province, city, barangay) {
+    const ext = [];
+    if (region) ext.push({
+      url: "urn://example.com/ph-core/fhir/StructureDefinition/region",
+      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: region }
+    });
+    if (province) ext.push({
+      url: "urn://example.com/ph-core/fhir/StructureDefinition/province",
+      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: province }
+    });
+    if (city) ext.push({
+      url: "urn://example.com/ph-core/fhir/StructureDefinition/city-municipality",
+      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: city }
+    });
+    if (barangay) ext.push({
+      url: "urn://example.com/ph-core/fhir/StructureDefinition/barangay",
+      valueCoding: { system: "https://ontoserver.upmsilab.org/psgc", code: barangay }
+    });
+    return ext;
   }
 
   // Compose patient JSON
@@ -300,10 +316,8 @@ function updatePatientFromForm() {
       {
         use: "home",
         line: permLine ? permLine.split(",").map(s => s.trim()) : [],
-        state: permRegion,
-        city: permProvince,
-        postalCode: permCity,
-        country: permCountry
+        country: permCountry,
+        extension: buildAddressExt(permRegion, permProvince, permCity, permBarangay)
       }
     ]
   };
@@ -312,10 +326,8 @@ function updatePatientFromForm() {
     patient.address.push({
       use: "temp",
       line: tempLine ? tempLine.split(",").map(s => s.trim()) : [],
-      state: tempRegion,
-      city: tempProvince,
-      postalCode: tempCity,
-      country: tempCountry
+      country: tempCountry,
+      extension: buildAddressExt(tempRegion, tempProvince, tempCity, tempBarangay)
     });
   }
 
@@ -349,18 +361,66 @@ async function populateSelect(selectElement, values, placeholder = "Select...") 
   });
 }
 
-// Terminology server integration for cascading selects
+// Recursive $lookup for child locations
+async function fetchChildren(code) {
+  const lookupUrl = `https://tx.fhirlab.net/fhir/CodeSystem/$lookup?system=https%3A%2F%2Fontoserver.upmsilab.org%2Fpsgc&code=${code}&property=child&_format=json`;
+  const response = await fetch(lookupUrl);
+  if (!response.ok) return [];
+  const data = await response.json();
+  const children = [];
+  for (const param of data.parameter) {
+    if (param.name === "property" && Array.isArray(param.part)) {
+      const codePart = param.part.find(p => p.name === "code" && p.valueCode === "child");
+      const valuePart = param.part.find(p => p.name === "value");
+      if (codePart && valuePart && valuePart.valueCode) {
+        // Fetch display for each child
+        const detailUrl = `https://tx.fhirlab.net/fhir/CodeSystem/$lookup?system=https%3A%2F%2Fontoserver.upmsilab.org%2Fpsgc&code=${valuePart.valueCode}&_format=json`;
+        const detailResp = await fetch(detailUrl);
+        if (detailResp.ok) {
+          const detailData = await detailResp.json();
+          const displayParam = detailData.parameter.find(p => p.name === "display");
+          const display = displayParam ? displayParam.valueString : valuePart.valueCode;
+          children.push({ code: valuePart.valueCode, display });
+        }
+      }
+    }
+  }
+  return children;
+}
+
+// Terminology server integration for cascading selects (recursive)
 async function initTerminologySelects(patient) {
   const form = document.getElementById("patient-form");
   if (!form) return;
 
+  // Permanent
   const permRegionSelect = form.elements["permRegion"];
   const permProvinceSelect = form.elements["permProvince"];
   const permCitySelect = form.elements["permCity"];
+  const permBarangaySelect = form.elements["permBarangay"];
 
+  // Temporary
   const tempRegionSelect = form.elements["tempRegion"];
   const tempProvinceSelect = form.elements["tempProvince"];
   const tempCitySelect = form.elements["tempCity"];
+  const tempBarangaySelect = form.elements["tempBarangay"];
+
+  // Helper to recursively load children
+  async function handleCascading(parentSelect, childSelect, nextChildSelect) {
+    parentSelect.addEventListener("change", async () => {
+      const code = parentSelect.value;
+      if (!code) {
+        childSelect.innerHTML = "";
+        if (nextChildSelect) nextChildSelect.innerHTML = "";
+        updatePatientFromForm();
+        return;
+      }
+      const children = await fetchChildren(code);
+      await populateSelect(childSelect, children, "Select...");
+      if (nextChildSelect) nextChildSelect.innerHTML = "";
+      updatePatientFromForm();
+    });
+  }
 
   // Lazy load regions on first click for each select
   let permRegionsLoaded = false;
@@ -385,13 +445,19 @@ async function initTerminologySelects(patient) {
   permRegionSelect.addEventListener("click", () => loadRegions(permRegionSelect, v => permRegionsLoaded = v ?? permRegionsLoaded));
   tempRegionSelect.addEventListener("click", () => loadRegions(tempRegionSelect, v => tempRegionsLoaded = v ?? tempRegionsLoaded));
 
-  // Add event listeners for cascading selects (province/city logic can be added here)
-  permRegionSelect.addEventListener("change", () => updatePatientFromForm());
-  permProvinceSelect.addEventListener("change", () => updatePatientFromForm());
-  permCitySelect.addEventListener("change", () => updatePatientFromForm());
-  tempRegionSelect.addEventListener("change", () => updatePatientFromForm());
-  tempProvinceSelect.addEventListener("change", () => updatePatientFromForm());
-  tempCitySelect.addEventListener("change", () => updatePatientFromForm());
+  // Cascading for permanent address
+  handleCascading(permRegionSelect, permProvinceSelect, permCitySelect);
+  handleCascading(permProvinceSelect, permCitySelect, permBarangaySelect);
+  handleCascading(permCitySelect, permBarangaySelect, null);
+
+  // Cascading for temporary address
+  handleCascading(tempRegionSelect, tempProvinceSelect, tempCitySelect);
+  handleCascading(tempProvinceSelect, tempCitySelect, tempBarangaySelect);
+  handleCascading(tempCitySelect, tempBarangaySelect, null);
+
+  // Update patient on barangay change
+  permBarangaySelect.addEventListener("change", updatePatientFromForm);
+  tempBarangaySelect.addEventListener("change", updatePatientFromForm);
 }
 
 // Handle form input changes
