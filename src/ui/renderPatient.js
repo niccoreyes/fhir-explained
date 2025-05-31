@@ -25,6 +25,144 @@
     }" />`;
   }
 
+  // Section renderers
+  function renderPhilHealthSection(philHealth) {
+    return `
+      <fieldset>
+        <legend><strong>PhilHealth Number</strong></legend>
+        <input type="text" name="philHealth" value="${philHealth}" placeholder="PhilHealth Number" />
+      </fieldset>
+    `;
+  }
+
+  function renderNameSection(family, given) {
+    return `
+      <fieldset>
+        <legend><strong>Name of Patient</strong></legend>
+        <label>Last Name:
+          <input type="text" name="family" value="${family}" placeholder="Apelyido" />
+        </label>
+        <label>First Name:
+          <input type="text" name="given0" value="${given[0] || ""}" placeholder="Pangalan" />
+        </label>
+        <label>Middle Name:
+          <input type="text" name="given1" value="${given[1] || ""}" placeholder="Gitnang Pangalan" />
+        </label>
+      </fieldset>
+    `;
+  }
+
+  function renderSexSection(gender, sexOptions) {
+    return `
+      <fieldset>
+        <legend><strong>Sex</strong></legend>
+        ${createInput({
+          type: "radio",
+          name: "gender",
+          value: gender,
+          options: sexOptions,
+        })}
+      </fieldset>
+    `;
+  }
+
+  function renderBirthDateSection(birthDate) {
+    return `
+      <fieldset>
+        <legend><strong>Birth Date</strong></legend>
+        <input type="date" name="birthDate" value="${birthDate}" id="birthDateInput" />
+        <legend><strong>If Birth Date is not known</strong></legend>
+        <div style="margin-top: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: nowrap;">
+          <label style="flex: 1; min-width: 100px; display: flex; flex-direction: column; align-items: flex-start;">
+            <span>Age Years:</span>
+            <input type="number" min="0" max="150" name="ageYear" value="" style="width: 100%;" />
+          </label>
+          <label style="flex: 1; min-width: 100px; display: flex; flex-direction: column; align-items: flex-start;">
+            <span>Age Months:</span>
+            <input type="number" min="0" max="11" name="ageMonth" value="" style="width: 100%;" />
+          </label>
+          <label style="flex: 1; min-width: 100px; display: flex; flex-direction: column; align-items: flex-start;">
+            <span>Age Days:</span>
+            <input type="number" min="0" max="31" name="ageDay" value="" style="width: 100%;" />
+          </label>
+        </div>
+        <div style="margin-top: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="generateAgeExt" name="generateAgeExt" checked />
+            <span>Generate Age extension</span>
+          </label>
+        </div>
+        <div id="rendered-age" style="margin: 12px 0; padding: 18px 32px; border-radius: 18px; font-weight: 600; color: #222; background: #1111;">Rendered Age: </div>
+      </fieldset>
+    `;
+  }
+
+  function renderPermanentAddressSection(permanentAddress) {
+    return `
+      <fieldset>
+        <legend><strong>Permanent Address</strong></legend>
+        <label>Street / Barangay:
+          <input type="text" name="permLine" value="${
+            permanentAddress.line ? permanentAddress.line.join(", ") : ""
+          }" placeholder="Kalye / Barangay" />
+        </label>
+        <label>Region:
+          <select name="permRegion" id="permRegion" class="styled-select"></select>
+        </label>
+        <label>Province:
+          <select name="permProvince" id="permProvince" class="styled-select"></select>
+        </label>
+        <label>City / Municipality:
+          <select name="permCity" id="permCity" class="styled-select"></select>
+        </label>
+        <label>Barangay:
+          <select name="permBarangay" id="permBarangay" class="styled-select"></select>
+        </label>
+        <label>Country:
+          <input type="text" name="permCountry" value="${
+            permanentAddress.country || "Philippines"
+          }" placeholder="Bansa" />
+        </label>
+      </fieldset>
+    `;
+  }
+
+  function renderTemporaryAddressSection(tempSameAsPermanent) {
+    return `
+      <fieldset>
+        <legend><strong>Temporary Address</strong></legend>
+        <label>
+          <input type="checkbox" id="tempSameAsPerm" name="tempSameAsPerm" ${
+            tempSameAsPermanent ? "checked" : ""
+          } />
+          Same as Permanent (hide temp in JSON)
+        </label>
+        <label>
+          <input type="checkbox" id="tempClonePerm" name="tempClonePerm" />
+          Same as Permanent - Keep use:Temp (clone home as temp)
+        </label>
+        <label>Street / Barangay:
+          <input type="text" name="tempLine" placeholder="Kalye / Barangay" />
+        </label>
+        <label>Region:
+          <select name="tempRegion" id="tempRegion" class="styled-select"></select>
+        </label>
+        <label>Province:
+          <select name="tempProvince" id="tempProvince" class="styled-select"></select>
+        </label>
+        <label>City / Municipality:
+          <select name="tempCity" id="tempCity" class="styled-select"></select>
+        </label>
+        <label>Barangay:
+          <select name="tempBarangay" id="tempBarangay" class="styled-select"></select>
+        </label>
+        <label>Country:
+          <input type="text" name="tempCountry" placeholder="Bansa" />
+        </label>
+      </fieldset>
+    `;
+  }
+
   // Render patient form for editing
   function renderPatient(patient) {
     const patientView = document.getElementById("patient-view");
@@ -72,122 +210,15 @@
       { value: "male", label: "Male" },
     ];
 
+    // Compose form using section renderers
     patientView.innerHTML = `
       <form id="patient-form" autocomplete="off" novalidate>
-       <fieldset>
-          <legend><strong>PhilHealth Number</strong></legend>
-          <input type="text" name="philHealth" value="${philHealth}" placeholder="PhilHealth Number" />
-        </fieldset>
-        <fieldset>
-          <legend><strong>Name of Patient</strong></legend>
-          <label>Last Name:
-            <input type="text" name="family" value="${family}" placeholder="Apelyido" />
-          </label>
-          <label>First Name:
-            <input type="text" name="given0" value="${
-              given[0] || ""
-            }" placeholder="Pangalan" />
-          </label>
-          <label>Middle Name:
-            <input type="text" name="given1" value="${
-              given[1] || ""
-            }" placeholder="Gitnang Pangalan" />
-          </label>
-        </fieldset>
-
-        <fieldset>
-          <legend><strong>Sex</strong></legend>
-          ${createInput({
-            type: "radio",
-            name: "gender",
-            value: gender,
-            options: sexOptions,
-          })}
-        </fieldset>
-
-        <fieldset>
-          <legend><strong>Birth Date</strong></legend>
-          <input type="date" name="birthDate" value="${birthDate}" id="birthDateInput" />
-          <legend><strong>If Birth Date is not known</strong></legend>
-          <div style="margin-top: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: nowrap;">
-            <label style="flex: 1; min-width: 100px; display: flex; flex-direction: column; align-items: flex-start;">
-              <span>Age Years:</span>
-              <input type="number" min="0" max="150" name="ageYear" value="" style="width: 100%;" />
-            </label>
-            <label style="flex: 1; min-width: 100px; display: flex; flex-direction: column; align-items: flex-start;">
-              <span>Age Months:</span>
-              <input type="number" min="0" max="11" name="ageMonth" value="" style="width: 100%;" />
-            </label>
-            <label style="flex: 1; min-width: 100px; display: flex; flex-direction: column; align-items: flex-start;">
-              <span>Age Days:</span>
-              <input type="number" min="0" max="31" name="ageDay" value="" style="width: 100%;" />
-            </label>
-          </div>
-          <div style="margin-top: 8px;">
-            <label style="display: flex; align-items: center; gap: 8px;">
-              <input type="checkbox" id="generateAgeExt" name="generateAgeExt" checked />
-              <span>Generate Age extension</span>
-            </label>
-          </div>
-          <div id="rendered-age" style="margin: 12px 0; padding: 18px 32px; border-radius: 18px; font-weight: 600; color: #222; background: #1111;">Rendered Age: </div>      </fieldset>
-
-        <fieldset>
-          <legend><strong>Permanent Address</strong></legend>
-          <label>Street / Barangay:
-            <input type="text" name="permLine" value="${
-              permanentAddress.line ? permanentAddress.line.join(", ") : ""
-            }" placeholder="Kalye / Barangay" />
-          </label>
-          <label>Region:
-            <select name="permRegion" id="permRegion" class="styled-select"></select>
-          </label>
-          <label>Province:
-            <select name="permProvince" id="permProvince" class="styled-select"></select>
-          </label>
-          <label>City / Municipality:
-            <select name="permCity" id="permCity" class="styled-select"></select>
-          </label>
-          <label>Barangay:
-            <select name="permBarangay" id="permBarangay" class="styled-select"></select>
-          </label>
-          <label>Country:
-            <input type="text" name="permCountry" value="${
-              permanentAddress.country || "Philippines"
-            }" placeholder="Bansa" />
-          </label>
-        </fieldset>
-
-        <fieldset>
-          <legend><strong>Temporary Address</strong></legend>
-          <label>
-            <input type="checkbox" id="tempSameAsPerm" name="tempSameAsPerm" ${
-              tempSameAsPermanent ? "checked" : ""
-            } />
-            Same as Permanent (hide temp in JSON)
-          </label>
-          <label>
-            <input type="checkbox" id="tempClonePerm" name="tempClonePerm" />
-            Same as Permanent - Keep use:Temp (clone home as temp)
-          </label>
-          <label>Street / Barangay:
-            <input type="text" name="tempLine" placeholder="Kalye / Barangay" />
-          </label>
-          <label>Region:
-            <select name="tempRegion" id="tempRegion" class="styled-select"></select>
-          </label>
-          <label>Province:
-            <select name="tempProvince" id="tempProvince" class="styled-select"></select>
-          </label>
-          <label>City / Municipality:
-            <select name="tempCity" id="tempCity" class="styled-select"></select>
-          </label>
-          <label>Barangay:
-            <select name="tempBarangay" id="tempBarangay" class="styled-select"></select>
-          </label>
-          <label>Country:
-            <input type="text" name="tempCountry" placeholder="Bansa" />
-          </label>
-        </fieldset>
+        ${renderPhilHealthSection(philHealth)}
+        ${renderNameSection(family, given)}
+        ${renderSexSection(gender, sexOptions)}
+        ${renderBirthDateSection(birthDate)}
+        ${renderPermanentAddressSection(permanentAddress)}
+        ${renderTemporaryAddressSection(tempSameAsPermanent)}
       </form>
     `;
 
