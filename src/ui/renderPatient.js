@@ -91,7 +91,7 @@
             <legend style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(1px, 1px, 1px, 1px);">Age Extension Options</legend>
             <label style="display: flex; align-items: center; gap: 8px;">
               <input type="checkbox" id="generateAgeExt" name="generateAgeExt" checked />
-              <span>Generate Age extension</span>
+              <span>If birthdate not known, Generate Age extension ()</span>
             </label>
             <label style="display: flex; align-items: center; gap: 8px;">
               <input type="checkbox" id="alwaysGenerateAgeExt" name="alwaysGenerateAgeExt" />
@@ -294,7 +294,14 @@
     // When "Generate Age Extension as well" is checked, recalculate on every input in age fields
     function handleManualAgeInputReactive() {
       const generateAgeExtCheckbox = form.elements["generateAgeExt"];
-      if (generateAgeExtCheckbox && generateAgeExtCheckbox.checked) {
+      const alwaysGenerateAgeExtCheckbox = form.elements["alwaysGenerateAgeExt"];
+      const generateChecked = generateAgeExtCheckbox && generateAgeExtCheckbox.checked;
+      const alwaysChecked = alwaysGenerateAgeExtCheckbox && alwaysGenerateAgeExtCheckbox.checked;
+      // If "Generate Age extension" is checked, or BOTH checkboxes are unchecked, updatePatientFromForm
+      if (
+        generateChecked ||
+        (!generateChecked && !alwaysChecked)
+      ) {
         window.PatientData.updatePatientFromForm();
       }
     }
