@@ -78,15 +78,6 @@ function renderPatient(patient) {
   // Check if temp address same as permanent
   const tempSameAsPermanent = JSON.stringify(tempAddress) === JSON.stringify(permanentAddress);
 
-  // Patient type options (example)
-  const patientTypes = [
-    {value: "ER", label: "ER"},
-    {value: "OPD", label: "OPD"},
-    {value: "In-Patient", label: "In-Patient (injury sustained during confinement)"},
-    {value: "BHS", label: "BHS"},
-    {value: "RHU", label: "RHU"}
-  ];
-
   // Sex options
   const sexOptions = [
     {value: "female", label: "Female"},
@@ -95,11 +86,6 @@ function renderPatient(patient) {
 
   patientView.innerHTML = `
     <form id="patient-form" autocomplete="off" novalidate>
-      <fieldset>
-        <legend><strong>Type of Patient</strong></legend>
-        ${createInput({type: "radio", name: "patientType", value: "", options: patientTypes})}
-      </fieldset>
-
       <fieldset>
         <legend><strong>Name of Patient</strong></legend>
         <label>Last Name:
@@ -154,25 +140,29 @@ function renderPatient(patient) {
         <legend><strong>Temporary Address</strong></legend>
         <label>
           <input type="checkbox" id="tempSameAsPerm" name="tempSameAsPerm" ${tempSameAsPermanent ? "checked" : ""} />
-          Same as Permanent
+          Same as Permanent (hide temp in JSON)
+        </label>
+        <label>
+          <input type="checkbox" id="tempClonePerm" name="tempClonePerm" />
+          Same as Permanent - Keep use:Temp (clone home as temp)
         </label>
         <label>Street / Barangay:
-          <input type="text" name="tempLine" value="${tempSameAsPermanent ? "" : (tempAddress.line ? tempAddress.line.join(", ") : "")}" ${tempSameAsPermanent ? "disabled" : ""} placeholder="Kalye / Barangay" />
+          <input type="text" name="tempLine" placeholder="Kalye / Barangay" />
         </label>
         <label>Region:
-          <select name="tempRegion" id="tempRegion" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
+          <select name="tempRegion" id="tempRegion" class="styled-select"></select>
         </label>
         <label>Province:
-          <select name="tempProvince" id="tempProvince" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
+          <select name="tempProvince" id="tempProvince" class="styled-select"></select>
         </label>
         <label>City / Municipality:
-          <select name="tempCity" id="tempCity" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
+          <select name="tempCity" id="tempCity" class="styled-select"></select>
         </label>
         <label>Barangay:
-          <select name="tempBarangay" id="tempBarangay" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
+          <select name="tempBarangay" id="tempBarangay" class="styled-select"></select>
         </label>
         <label>Country:
-          <input type="text" name="tempCountry" value="${tempSameAsPermanent ? "" : (tempAddress.country || "Philippines")}" ${tempSameAsPermanent ? "disabled" : ""} placeholder="Bansa" />
+          <input type="text" name="tempCountry" placeholder="Bansa" />
         </label>
       </fieldset>
     </form>
@@ -182,15 +172,39 @@ function renderPatient(patient) {
   const form = document.getElementById("patient-form");
   form.addEventListener("input", onFormInput);
 
-  // Checkbox special handling
-  const tempSameCheckbox = document.getElementById("tempSameAsPerm");
+  // Mutually exclusive checkboxes logic for tempSameAsPerm and tempClonePerm
+  const tempSameCheckbox = form.elements["tempSameAsPerm"];
+  const tempCloneCheckbox = form.elements["tempClonePerm"];
+  if (tempSameCheckbox && tempCloneCheckbox) {
+    tempSameCheckbox.addEventListener("click", () => {
+      if (tempSameCheckbox.checked) {
+        tempCloneCheckbox.checked = false;
+      }
+      updatePatientFromForm();
+    });
+    tempCloneCheckbox.addEventListener("click", () => {
+      if (tempCloneCheckbox.checked) {
+        tempSameCheckbox.checked = false;
+      }
+      updatePatientFromForm();
+    });
+    // Set initial state
+    if (tempSameCheckbox.checked) {
+      tempCloneCheckbox.checked = false;
+    }
+    if (tempCloneCheckbox.checked) {
+      tempSameCheckbox.checked = false;
+    }
+  }
+
+  // Checkbox special handling for disabling temp fields
   tempSameCheckbox.addEventListener("change", (e) => {
     const checked = e.target.checked;
     const tempFields = ["tempLine", "tempRegion", "tempProvince", "tempCity", "tempBarangay", "tempCountry"];
     tempFields.forEach(name => {
       const input = form.elements[name];
       if (input) {
-        input.disabled = checked;
+        input.disabled = checked || tempCloneCheckbox.checked;
         if (checked) {
           if (input.tagName === "SELECT") {
             input.innerHTML = "";
@@ -204,6 +218,24 @@ function renderPatient(patient) {
       // Copy permanent address values to temporary address selects and inputs
       copyPermanentToTemporary();
     }
+    updatePatientFromForm();
+  });
+  tempCloneCheckbox.addEventListener("change", (e) => {
+    const checked = e.target.checked;
+    const tempFields = ["tempLine", "tempRegion", "tempProvince", "tempCity", "tempBarangay", "tempCountry"];
+    tempFields.forEach(name => {
+      const input = form.elements[name];
+      if (input) {
+        input.disabled = checked || tempSameCheckbox.checked;
+        if (checked) {
+          if (input.tagName === "SELECT") {
+            input.innerHTML = "";
+          } else {
+            input.value = "";
+          }
+        }
+      }
+    });
     updatePatientFromForm();
   });
 
@@ -255,13 +287,14 @@ function updatePatientFromForm() {
 
   // Temporary address
   const tempSameAsPerm = form.elements["tempSameAsPerm"].checked;
+  const tempClonePerm = form.elements["tempClonePerm"].checked;
   let tempLine = "";
   let tempRegion = "";
   let tempProvince = "";
   let tempCity = "";
   let tempBarangay = "";
   let tempCountry = "";
-  if (!tempSameAsPerm) {
+  if (!tempSameAsPerm && !tempClonePerm) {
     tempLine = form.elements["tempLine"].value.trim();
     tempRegion = form.elements["tempRegion"].value;
     tempProvince = form.elements["tempProvince"].value;
@@ -322,7 +355,13 @@ function updatePatientFromForm() {
     ]
   };
 
-  if (!tempSameAsPerm) {
+  // "Same as Permanent - Keep use:Temp" (clone home as temp)
+  if (tempClonePerm) {
+    patient.address.push({
+      ...patient.address[0],
+      use: "temp"
+    });
+  } else if (!tempSameAsPerm) {
     patient.address.push({
       use: "temp",
       line: tempLine ? tempLine.split(",").map(s => s.trim()) : [],
