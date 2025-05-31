@@ -152,16 +152,16 @@ function renderPatient(patient) {
           <input type="text" name="permLine" value="${permanentAddress.line ? permanentAddress.line.join(", ") : ""}" placeholder="Kalye / Barangay" />
         </label>
         <label>Region:
-          <input type="text" name="permState" value="${permanentAddress.state || ""}" placeholder="Rehiyon" />
+          <select name="permRegion" id="permRegion" aria-label="Permanent Region" class="styled-select"></select>
         </label>
         <label>Province:
-          <input type="text" name="permCity" value="${permanentAddress.city || ""}" placeholder="Lalawigan" />
+          <select name="permProvince" id="permProvince" aria-label="Permanent Province" class="styled-select"></select>
         </label>
         <label>City / Municipality:
-          <input type="text" name="permPostalCode" value="${permanentAddress.postalCode || ""}" placeholder="Lungsod / Munisipalidad" />
+          <select name="permCity" id="permCity" aria-label="Permanent City or Municipality" class="styled-select"></select>
         </label>
         <label>Country:
-          <input type="text" name="permCountry" value="${permanentAddress.country || ""}" placeholder="Bansa" />
+          <input type="text" name="permCountry" value="${permanentAddress.country || "Philippines"}" placeholder="Bansa" />
         </label>
       </fieldset>
 
@@ -175,16 +175,16 @@ function renderPatient(patient) {
           <input type="text" name="tempLine" value="${tempSameAsPermanent ? "" : (tempAddress.line ? tempAddress.line.join(", ") : "")}" ${tempSameAsPermanent ? "disabled" : ""} placeholder="Kalye / Barangay" />
         </label>
         <label>Region:
-          <input type="text" name="tempState" value="${tempSameAsPermanent ? "" : (tempAddress.state || "")}" ${tempSameAsPermanent ? "disabled" : ""} placeholder="Rehiyon" />
+          <select name="tempRegion" id="tempRegion" aria-label="Temporary Region" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
         </label>
         <label>Province:
-          <input type="text" name="tempCity" value="${tempSameAsPermanent ? "" : (tempAddress.city || "")}" ${tempSameAsPermanent ? "disabled" : ""} placeholder="Lalawigan" />
+          <select name="tempProvince" id="tempProvince" aria-label="Temporary Province" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
         </label>
         <label>City / Municipality:
-          <input type="text" name="tempPostalCode" value="${tempSameAsPermanent ? "" : (tempAddress.postalCode || "")}" ${tempSameAsPermanent ? "disabled" : ""} placeholder="Lungsod / Munisipalidad" />
+          <select name="tempCity" id="tempCity" aria-label="Temporary City or Municipality" class="styled-select" ${tempSameAsPermanent ? "disabled" : ""}></select>
         </label>
         <label>Country:
-          <input type="text" name="tempCountry" value="${tempSameAsPermanent ? "" : (tempAddress.country || "")}" ${tempSameAsPermanent ? "disabled" : ""} placeholder="Bansa" />
+          <input type="text" name="tempCountry" value="${tempSameAsPermanent ? "" : (tempAddress.country || "Philippines")}" ${tempSameAsPermanent ? "disabled" : ""} placeholder="Bansa" />
         </label>
       </fieldset>
     </form>
@@ -198,18 +198,47 @@ function renderPatient(patient) {
   const tempSameCheckbox = document.getElementById("tempSameAsPerm");
   tempSameCheckbox.addEventListener("change", (e) => {
     const checked = e.target.checked;
-    const tempFields = ["tempLine", "tempState", "tempCity", "tempPostalCode", "tempCountry"];
+    const tempFields = ["tempLine", "tempRegion", "tempProvince", "tempCity", "tempCountry"];
     tempFields.forEach(name => {
       const input = form.elements[name];
       if (input) {
         input.disabled = checked;
         if (checked) {
-          input.value = "";
+          if (input.tagName === "SELECT") {
+            input.innerHTML = "";
+          } else {
+            input.value = "";
+          }
         }
       }
     });
+    if (checked) {
+      // Copy permanent address values to temporary address selects and inputs
+      copyPermanentToTemporary();
+    }
     updatePatientFromForm();
   });
+
+  // Initialize terminology server selects
+  initTerminologySelects(patient);
+
+  // Copy permanent address to temporary if checkbox checked
+  function copyPermanentToTemporary() {
+    const permRegion = form.elements["permRegion"];
+    const permProvince = form.elements["permProvince"];
+    const permCity = form.elements["permCity"];
+    const permCountry = form.elements["permCountry"];
+
+    const tempRegion = form.elements["tempRegion"];
+    const tempProvince = form.elements["tempProvince"];
+    const tempCity = form.elements["tempCity"];
+    const tempCountry = form.elements["tempCountry"];
+
+    if (permRegion && tempRegion) tempRegion.innerHTML = permRegion.innerHTML;
+    if (permProvince && tempProvince) tempProvince.innerHTML = permProvince.innerHTML;
+    if (permCity && tempCity) tempCity.innerHTML = permCity.innerHTML;
+    if (permCountry && tempCountry) tempCountry.value = permCountry.value;
+  }
 }
 
 // Update JSON editor from form inputs
@@ -227,23 +256,23 @@ function updatePatientFromForm() {
 
   // Permanent address
   const permLine = form.elements["permLine"].value.trim();
-  const permState = form.elements["permState"].value.trim();
-  const permCity = form.elements["permCity"].value.trim();
-  const permPostalCode = form.elements["permPostalCode"].value.trim();
+  const permRegion = form.elements["permRegion"].value;
+  const permProvince = form.elements["permProvince"].value;
+  const permCity = form.elements["permCity"].value;
   const permCountry = form.elements["permCountry"].value.trim();
 
   // Temporary address
   const tempSameAsPerm = form.elements["tempSameAsPerm"].checked;
   let tempLine = "";
-  let tempState = "";
+  let tempRegion = "";
+  let tempProvince = "";
   let tempCity = "";
-  let tempPostalCode = "";
   let tempCountry = "";
   if (!tempSameAsPerm) {
     tempLine = form.elements["tempLine"].value.trim();
-    tempState = form.elements["tempState"].value.trim();
-    tempCity = form.elements["tempCity"].value.trim();
-    tempPostalCode = form.elements["tempPostalCode"].value.trim();
+    tempRegion = form.elements["tempRegion"].value;
+    tempProvince = form.elements["tempProvince"].value;
+    tempCity = form.elements["tempCity"].value;
     tempCountry = form.elements["tempCountry"].value.trim();
   }
 
@@ -271,9 +300,9 @@ function updatePatientFromForm() {
       {
         use: "home",
         line: permLine ? permLine.split(",").map(s => s.trim()) : [],
-        state: permState,
-        city: permCity,
-        postalCode: permPostalCode,
+        state: permRegion,
+        city: permProvince,
+        postalCode: permCity,
         country: permCountry
       }
     ]
@@ -283,9 +312,9 @@ function updatePatientFromForm() {
     patient.address.push({
       use: "temp",
       line: tempLine ? tempLine.split(",").map(s => s.trim()) : [],
-      state: tempState,
-      city: tempCity,
-      postalCode: tempPostalCode,
+      state: tempRegion,
+      city: tempProvince,
+      postalCode: tempCity,
       country: tempCountry
     });
   }
@@ -293,6 +322,76 @@ function updatePatientFromForm() {
   currentPatient = patient;
   jsonEditor.value = JSON.stringify(patient, null, 2);
   errorMessage.textContent = "";
+}
+
+// Helper for fetching ValueSet
+async function fetchValueSet(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
+  return response.json();
+}
+
+// Helper for populating select
+async function populateSelect(selectElement, values, placeholder = "Select...") {
+  selectElement.innerHTML = "";
+  const placeholderOption = document.createElement("option");
+  placeholderOption.value = "";
+  placeholderOption.textContent = placeholder;
+  placeholderOption.disabled = true;
+  placeholderOption.selected = true;
+  selectElement.appendChild(placeholderOption);
+
+  values.forEach(v => {
+    const option = document.createElement("option");
+    option.value = v.code;
+    option.textContent = v.display;
+    selectElement.appendChild(option);
+  });
+}
+
+// Terminology server integration for cascading selects
+async function initTerminologySelects(patient) {
+  const form = document.getElementById("patient-form");
+  if (!form) return;
+
+  const permRegionSelect = form.elements["permRegion"];
+  const permProvinceSelect = form.elements["permProvince"];
+  const permCitySelect = form.elements["permCity"];
+
+  const tempRegionSelect = form.elements["tempRegion"];
+  const tempProvinceSelect = form.elements["tempProvince"];
+  const tempCitySelect = form.elements["tempCity"];
+
+  // Lazy load regions on first click for each select
+  let permRegionsLoaded = false;
+  let tempRegionsLoaded = false;
+
+  async function loadRegions(selectElement, loadedFlagSetter) {
+    if (loadedFlagSetter()) return;
+    const valueSetUrl = "https://tx.fhirlab.net/fhir/ValueSet/55372606-f7d2-4450-8b9d-c3f51f67a138/$expand";
+    try {
+      const response = await fetch(valueSetUrl);
+      if (!response.ok) throw new Error("Failed to fetch regions");
+      const valueSet = await response.json();
+      if (!valueSet.expansion || !Array.isArray(valueSet.expansion.contains)) throw new Error("Malformed ValueSet response");
+      const regions = valueSet.expansion.contains.map(c => ({code: c.code, display: c.display}));
+      await populateSelect(selectElement, regions, "Select Region");
+      loadedFlagSetter(true);
+    } catch (error) {
+      console.error("Failed to load regions:", error);
+    }
+  }
+
+  permRegionSelect.addEventListener("click", () => loadRegions(permRegionSelect, v => permRegionsLoaded = v ?? permRegionsLoaded));
+  tempRegionSelect.addEventListener("click", () => loadRegions(tempRegionSelect, v => tempRegionsLoaded = v ?? tempRegionsLoaded));
+
+  // Add event listeners for cascading selects (province/city logic can be added here)
+  permRegionSelect.addEventListener("change", () => updatePatientFromForm());
+  permProvinceSelect.addEventListener("change", () => updatePatientFromForm());
+  permCitySelect.addEventListener("change", () => updatePatientFromForm());
+  tempRegionSelect.addEventListener("change", () => updatePatientFromForm());
+  tempProvinceSelect.addEventListener("change", () => updatePatientFromForm());
+  tempCitySelect.addEventListener("change", () => updatePatientFromForm());
 }
 
 // Handle form input changes
