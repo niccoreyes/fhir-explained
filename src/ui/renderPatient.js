@@ -238,6 +238,32 @@
       form.addEventListener("input", window.FormEvents.onFormInput);
     }
 
+    // Explicit reactive event listeners for name fields
+    const familyInput = form.elements["family"];
+    if (familyInput) {
+      familyInput.addEventListener("input", window.PatientData.updatePatientFromForm);
+    }
+    const given0Input = form.elements["given0"];
+    if (given0Input) {
+      given0Input.addEventListener("input", window.PatientData.updatePatientFromForm);
+    }
+    const given1Input = form.elements["given1"];
+    if (given1Input) {
+      given1Input.addEventListener("input", window.PatientData.updatePatientFromForm);
+    }
+
+    // Explicit reactive event listener for philHealth number
+    const philHealthInput = form.elements["philHealth"];
+    if (philHealthInput) {
+      philHealthInput.addEventListener("input", window.PatientData.updatePatientFromForm);
+    }
+
+    // Explicit reactive event listeners for sex (gender) radio buttons
+    const genderInputs = form.querySelectorAll('input[name="gender"]');
+    genderInputs.forEach((input) => {
+      input.addEventListener("change", window.PatientData.updatePatientFromForm);
+    });
+
     // Add event listener for Generate Age extension checkbox
     const generateAgeExtCheckbox = form.elements["generateAgeExt"];
     if (generateAgeExtCheckbox) {
