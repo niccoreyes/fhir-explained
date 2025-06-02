@@ -181,7 +181,7 @@
     // Extract fields
     const name = (patient.name && patient.name[0]) || {};
     const family = name.family || "";
-    const given = name.given || ["", ""];
+    const given = name.given || ["", ""]; 
     const gender = patient.gender || "";
     const birthDate = patient.birthDate || "";
     const identifier = (patient.identifier && patient.identifier[0]) || {};
@@ -304,17 +304,68 @@
     const ageYearInput = form.elements["ageYear"];
     const ageMonthInput = form.elements["ageMonth"];
     const ageDayInput = form.elements["ageDay"];
-    function updateBirthDateDisabled() {
-      const anyAgeFilled =
-        (ageYearInput && ageYearInput.value !== "") ||
-        (ageMonthInput && ageMonthInput.value !== "") ||
-        (ageDayInput && ageDayInput.value !== "");
-      if (birthDateInput) birthDateInput.disabled = anyAgeFilled;
+    let birthDateManuallyChanged = false;
+
+    if (birthDateInput) {
+      birthDateInput.addEventListener("input", () => {
+        birthDateManuallyChanged = true;
+        // Synchronize manual age fields from birthDate input
+        const birthDateValue = birthDateInput.value;
+        if (birthDateValue) {
+          const age = calculateAgeFromBirthDate(birthDateValue);
+          if (age.valid) {
+            ageYearInput.value = age.years;
+            ageMonthInput.value = age.months;
+            ageDayInput.value = age.days;
+          } else {
+            ageYearInput.value = "";
+            ageMonthInput.value = "";
+            ageDayInput.value = "";
+          }
+        } else {
+          ageYearInput.value = "";
+          ageMonthInput.value = "";
+          ageDayInput.value = "";
+        }
+        // Always trigger updatePatientFromForm on birthDate input change
+        window.PatientData.updatePatientFromForm();
+      });
     }
+
+    function updateBirthDateFromAgeFields() {
+      if (birthDateManuallyChanged) return; // Do not override if user manually changed birthDate
+      const year = parseInt(ageYearInput.value) || 0;
+      const month = parseInt(ageMonthInput.value) || 0;
+      const day = parseInt(ageDayInput.value) || 0;
+      if (year === 0 && month === 0 && day === 0) return; // No age input to calculate from
+      const now = new Date();
+      let birthYear = now.getFullYear() - year;
+      let birthMonth = now.getMonth() + 1 - month; // JS months 0-based, input 1-based
+      let birthDay = now.getDate() - day;
+      if (birthDay <= 0) {
+        birthMonth -= 1;
+        const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        birthDay += prevMonth.getDate();
+      }
+      if (birthMonth <= 0) {
+        birthYear -= 1;
+        birthMonth += 12;
+      }
+      // Format as YYYY-MM-DD with leading zeros
+      const formattedMonth = birthMonth.toString().padStart(2, "0");
+      const formattedDay = birthDay.toString().padStart(2, "0");
+      const newBirthDate = `${birthYear}-${formattedMonth}-${formattedDay}`;
+      if (birthDateInput.value !== newBirthDate) {
+        birthDateInput.value = newBirthDate;
+        // Trigger input event to update rendered age and dependents
+        const event = new Event("input", { bubbles: true });
+        birthDateInput.dispatchEvent(event);
+      }
+    }
+
     [ageYearInput, ageMonthInput, ageDayInput].forEach((input) => {
-      if (input) input.addEventListener("input", updateBirthDateDisabled);
+      if (input) input.addEventListener("input", updateBirthDateFromAgeFields);
     });
-    updateBirthDateDisabled();
 
     // --- FULL REACTIVITY FOR MANUAL AGE FIELDS ---
     // When "Generate Age Extension as well" is checked, recalculate on every input in age fields
@@ -554,20 +605,20 @@
       window.PatientData.updatePatientFromForm();
     });
 
-        // Initialize terminology server selects with guard and retry
-        function tryInitTerminologySelects(patient, retries = 5, delay = 100) {
-          if (
-            window.TerminologyService &&
-            typeof window.TerminologyService.initTerminologySelects === "function"
-          ) {
-            window.TerminologyService.initTerminologySelects(patient);
-          } else if (retries > 0) {
-            setTimeout(() => tryInitTerminologySelects(patient, retries - 1, delay), delay);
-          }
-          // else: give up silently
-        }
-        tryInitTerminologySelects(patient);
-    
+    // Initialize terminology server selects with guard and retry
+    function tryInitTerminologySelects(patient, retries = 5, delay = 100) {
+      if (
+        window.TerminologyService &&
+        typeof window.TerminologyService.initTerminologySelects === "function"
+      ) {
+        window.TerminologyService.initTerminologySelects(patient);
+      } else if (retries > 0) {
+        setTimeout(() => tryInitTerminologySelects(patient, retries - 1, delay), delay);
+      }
+      // else: give up silently
+    }
+    tryInitTerminologySelects(patient);
+
     // Copy permanent address to temporary if checkbox checked
     function copyPermanentToTemporary() {
       const permRegion = form.elements["permRegion"];
