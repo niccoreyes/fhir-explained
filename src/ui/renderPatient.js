@@ -309,23 +309,16 @@
     if (birthDateInput) {
       birthDateInput.addEventListener("input", () => {
         birthDateManuallyChanged = true;
-        // Synchronize manual age fields from birthDate input
+        // Synchronize manual age fields from birthDate input only if birthDate is empty
         const birthDateValue = birthDateInput.value;
         if (birthDateValue) {
-          const age = calculateAgeFromBirthDate(birthDateValue);
-          if (age.valid) {
-            ageYearInput.value = age.years;
-            ageMonthInput.value = age.months;
-            ageDayInput.value = age.days;
-          } else {
-            ageYearInput.value = "";
-            ageMonthInput.value = "";
-            ageDayInput.value = "";
-          }
-        } else {
+          // Clear manual age fields if birthDate is provided
           ageYearInput.value = "";
           ageMonthInput.value = "";
           ageDayInput.value = "";
+        } else {
+          // If birthDate is empty, manual age fields remain editable and can be used
+          // No auto-population here to avoid overwriting user input
         }
         // Always trigger updatePatientFromForm on birthDate input change
         window.PatientData.updatePatientFromForm();
